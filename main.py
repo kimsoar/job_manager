@@ -2,7 +2,8 @@ import click
 import asyncio
 from manager.job_registry import get_all_jobs, get_job_by_name
 from manager.job_executor import JobExecutor
-import jobs  # trigger registration
+from utils.db import db_instance
+import jobs  # register all jobs
 
 @click.group()
 def cli():
@@ -13,16 +14,24 @@ def cli():
 @click.option('--only', multiple=True, help="Run only specific job(s) by name")
 def run(only):
     """Run jobs (all or selected)"""
-    if only:
-        selected = get_job_by_name(only)
-        if not selected:
-            click.echo("No jobs found matching your selection.")
-            return
-    else:
-        selected = get_all_jobs()
+    async def main():
+        await db_instance.connect()
 
-    executor = JobExecutor(selected)
-    asyncio.run(executor.run_all())
+        if only:
+            selected = get_job_by_name(only)
+            if not selected:
+                click.echo("No jobs found.")
+                return
+        else:
+            selected = get_all_jobs()
+
+        executor = JobExecutor(selected)
+        try:
+            await executor.run_all()
+        except KeyboardInterrupt:
+            click.echo("Received Ctrl+C. Cancelling tasks...")
+
+    asyncio.run(main())
 
 @cli.command()
 def list():

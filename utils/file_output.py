@@ -1,3 +1,5 @@
+import aiofiles
+import aiofiles.os
 import os
 import json
 import csv
@@ -11,9 +13,9 @@ OUTPUT_DIR = "output"
 def save_result_to_file(format="json", fields=None, filename=None, filename_prefix="result", append=False, date_partition=False):
     def decorator(func):
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs):
             os.makedirs(OUTPUT_DIR, exist_ok=True)
-            result = func(*args, **kwargs)
+            result = await func(*args, **kwargs)
 
             if filename:
                 filepath = os.path.join(OUTPUT_DIR, filename)
@@ -23,7 +25,7 @@ def save_result_to_file(format="json", fields=None, filename=None, filename_pref
                 filepath = os.path.join(OUTPUT_DIR, fname)
 
             try:
-                _save_data(filepath, result, format=format, fields=fields, append=append)
+                await _save_data(filepath, result, format=format, fields=fields, append=append)
                 logger.info(f"Saved result to file: {filepath}")
                 return {"file_path": filepath, "status": "saved"}
             except Exception as e:
@@ -32,43 +34,41 @@ def save_result_to_file(format="json", fields=None, filename=None, filename_pref
         return wrapper
     return decorator
 
-def _save_data(filepath, data, format, fields=None, append=False):
+async def _save_data(filepath, data, format, fields=None, append=False):
     if format == "json":
         existing = []
         if append and os.path.exists(filepath):
-            with open(filepath, "r", encoding="utf-8") as f:
+            async with aiofiles.open(filepath, "r", encoding="utf-8") as f:
                 try:
-                    existing = json.load(f)
+                    content = await f.read()
+                    existing = json.loads(content)
                     if not isinstance(existing, list):
                         existing = [existing]
-                except Exception:
+                except:
                     existing = []
         if fields:
-            if isinstance(data, list):
-                data = [{k: d.get(k) for k in fields} for d in data]
-            elif isinstance(data, dict):
-                data = {k: data.get(k) for k in fields}
+            data = [{k: d.get(k) for k in fields} for d in data] if isinstance(data, list) else {k: data.get(k) for k in fields}
         merged = existing + (data if isinstance(data, list) else [data])
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(merged, f, ensure_ascii=False, indent=2)
+        async with aiofiles.open(filepath, "w", encoding="utf-8") as f:
+            await f.write(json.dumps(merged, ensure_ascii=False, indent=2))
 
     elif format == "txt":
-        with open(filepath, "a" if append else "w", encoding="utf-8") as f:
-            f.write(str(data) + "\n")
+        async with aiofiles.open(filepath, "a" if append else "w", encoding="utf-8") as f:
+            await f.write(str(data) + "\n")
 
     elif format == "csv":
-        if isinstance(data, dict):
-            data = [data]
-        if not isinstance(data, list) or not all(isinstance(d, dict) for d in data):
-            raise ValueError("CSV format requires a list of dicts")
-
-        fieldnames = fields or data[0].keys()
-        write_header = not os.path.exists(filepath) or not append
-
-        with open(filepath, "a", newline='', encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            if write_header:
-                writer.writeheader()
-            writer.writerows(data)
+        mode = "a" if append and os.path.exists(filepath) else "w"
+        async with aiofiles.open(filepath, mode, encoding="utf-8", newline="") as f:
+            if isinstance(data, dict):
+                data = [data]
+            if not data:
+                return
+            fieldnames = fields if fields else data[0].keys()
+            writer = csv.DictWriter(await f.__aenter__(), fieldnames=fieldnames)
+            if mode == "w":
+                await f.write(",".join(fieldnames) + "\n")
+            for row in data:
+                line = ",".join(str(row.get(field, "")) for field in fieldnames) + "\n"
+                await f.write(line)
     else:
         raise ValueError(f"Unsupported format: {format}")
