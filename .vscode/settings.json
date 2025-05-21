@@ -1,5 +1,7 @@
 {
   "cSpell.words": [
-    "fetchrow"
+    "dotenv",
+    "fetchrow",
+    "levelname"
   ]
 }

@@ -4,7 +4,7 @@ import requests
 from utils.retry import retry_async
 import random
 
-@job(name="unstable_task")
+@job(name="retry_example")
 @retry_async(retries=5, delay=1)
 async def unstable_job():
     if random.random() < 0.7:

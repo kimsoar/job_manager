@@ -5,14 +5,25 @@ from manager.job_executor import JobExecutor
 from utils.db import db_instance
 import jobs  # register all jobs
 
+
+RUN_HELP_MESSAGE = """
+⚠️ Usage instructions:
+    Run all jobs: python main.py run --all
+    Run specific jobs: python main.py run --only job_name [--only job_name2 ...]
+    View the list of registered jobs: python main.py list
+"""
+
+
 @click.group()
 def cli():
     """Job Manager CLI"""
     pass
 
+
 @cli.command()
 @click.option('--only', multiple=True, help="Run only specific job(s) by name")
-def run(only):
+@click.option('--all', 'run_all', is_flag=True, help="Run all registered jobs")
+def run(only, run_all):
     """Run jobs (all or selected)"""
     async def main():
         await db_instance.connect()
@@ -20,10 +31,13 @@ def run(only):
         if only:
             selected = get_job_by_name(only)
             if not selected:
-                click.echo("No jobs found.")
+                click.echo("❌ No matching jobs found.")
                 return
-        else:
+        elif run_all:
             selected = get_all_jobs()
+        else:
+            click.echo(RUN_HELP_MESSAGE)
+            return
 
         executor = JobExecutor(selected)
         try:
@@ -36,6 +50,7 @@ def run(only):
 @cli.command()
 def list():
     """List all available jobs"""
+    click.echo("📋 Registered Job List:")
     for name, _ in get_all_jobs():
         click.echo(f"- {name}")
 

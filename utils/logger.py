@@ -1,15 +1,28 @@
 import logging
 import os
+from logging.handlers import RotatingFileHandler
+from datetime import datetime
 
 def get_logger(name):
-    log_dir = "logs"
+    log_root_dir = "logs"
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    log_dir = os.path.join(log_root_dir, current_date)
     os.makedirs(log_dir, exist_ok=True)
+
     log_file = os.path.join(log_dir, "job_manager.log")
 
     logger = logging.getLogger(name)
+
     if not logger.hasHandlers():
         formatter = logging.Formatter('[%(asctime)s] %(levelname)s:%(name)s:%(message)s')
-        file_handler = logging.FileHandler(log_file)
+
+        # 최대 10MB, 최대 5개까지 롤링
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5,
+            encoding='utf-8'
+        )
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.INFO)
 
