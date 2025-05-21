@@ -1,12 +1,13 @@
+from config import ENV_MODE
+
 import logging
 import os
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
 
 def get_logger(name):
-    log_root_dir = "logs"
     current_date = datetime.now().strftime("%Y-%m-%d")
-    log_dir = os.path.join(log_root_dir, current_date)
+    log_dir = os.path.join("logs", ENV_MODE, current_date)
     os.makedirs(log_dir, exist_ok=True)
 
     log_file = os.path.join(log_dir, "job_manager.log")
