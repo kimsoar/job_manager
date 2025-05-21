@@ -1,7 +1,8 @@
 from manager.job_registry import job
 from utils.file_output import save_result_to_file
-import requests
 from utils.retry import retry_async
+
+import requests
 import random
 
 @job(name="retry_example")
