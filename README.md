@@ -48,7 +48,126 @@ print(df.info())
 
 # CSV 파일로 저장 (필요시 주석 해제)
 # df.to_csv('extended_sensor_data.csv', index=False, encoding='utf-8-sig')
-# print("\n'extended_sensor_data.csv' 파일이 성공적으로 저장되었습니다.")
+# print("\n'extended_sensor_data.csv' 파일이 성공적으로 import glob
+import csv
+from collections import Counter, defaultdict
+from datetime import datetime
+import matplotlib.pyplot as plt
+import os
+
+LOG_PATH = "./logs/*.log"  # IIS 로그 파일 패턴
+OUTPUT_DIR = "./tps_results"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+tps_counter = Counter()
+endpoint_tps = defaultdict(Counter)
+status_tps = defaultdict(Counter)
+
+# 모든 로그 파일 순회
+for file_path in glob.glob(LOG_PATH):
+    print(f"처리중: {file_path}")
+    with open(file_path, encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("#") or not line.strip():
+                continue
+
+            parts = line.split()
+            if len(parts) < 7:
+                continue
+
+            date_str, time_str = parts[0], parts[1]
+            uri = parts[4]       # cs-uri-stem
+            status = parts[6]    # sc-status
+
+            try:
+                dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                continue
+
+            # 초 단위 TPS 집계
+            tps_counter[dt] += 1
+            endpoint_tps[uri][dt] += 1
+            status_tps[status][dt] += 1
+
+# Peak TPS 계산
+if tps_counter:
+    peak_time, peak_value = max(tps_counter.items(), key=lambda x: x[1])
+else:
+    peak_time, peak_value = None, 0
+
+# 공통 출력 함수
+def print_tps_report(title, counter_dict):
+    print(f"\n=== {title} ===")
+    for key, counter in sorted(counter_dict.items(), key=lambda x: -sum(x[1].values())):
+        total = sum(counter.values())
+        avg = total / len(counter) if counter else 0
+        peak = max(counter.values()) if counter else 0
+        print(f"{key} -> 총 요청: {total}, 평균 TPS: {avg:.2f}, 피크 TPS: {peak}")
+
+# 전체 TPS 계산
+total_requests = sum(tps_counter.values())
+total_seconds = len(tps_counter)
+avg_tps = total_requests / total_seconds if total_seconds > 0 else 0
+
+print("\n=== 전체 TPS (모든 로그 합산, 초 단위) ===")
+print(f"총 요청 수: {total_requests}")
+print(f"측정 구간: {total_seconds}초")
+print(f"평균 TPS: {avg_tps:.2f}")
+print(f"피크 TPS: {peak_value} (시간: {peak_time})")
+
+# 엔드포인트별 TPS
+print_tps_report("엔드포인트별 TPS", endpoint_tps)
+
+# 상태코드별 TPS
+print_tps_report("상태코드별 TPS", status_tps)
+
+# ========================
+# CSV 저장
+# ========================
+
+# 전체 TPS CSV
+overall_csv_path = os.path.join(OUTPUT_DIR, "overall_tps.csv")
+with open(overall_csv_path, "w", newline="", encoding="utf-8") as f:
+    writer = csv.writer(f)
+    writer.writerow(["시간(초)", "TPS"])
+    for t in sorted(tps_counter.keys()):
+        writer.writerow([t, tps_counter[t]])
+print(f"전체 TPS CSV 저장 완료: {overall_csv_path}")
+
+# Peak TPS CSV
+peak_csv_path = os.path.join(OUTPUT_DIR, "peak_tps.csv")
+with open(peak_csv_path, "w", newline="", encoding="utf-8") as f:
+    writer = csv.writer(f)
+    writer.writerow(["시간", "TPS"])
+    writer.writerow([peak_time, peak_value])
+print(f"Peak TPS CSV 저장 완료: {peak_csv_path}")
+
+# ========================
+# 그래프 시각화
+# ========================
+
+# 시간대별 TPS 변화
+times = sorted(tps_counter.keys())
+tps_values = [tps_counter[t] for t in times]
+
+plt.figure(figsize=(12, 6))
+plt.plot(times, tps_values, label="TPS", color="blue")
+plt.axvline(peak_time, color="red", linestyle="--", label=f"Peak: {peak_time}")
+plt.title("시간대별 TPS 변화")
+plt.xlabel("시간")
+plt.ylabel("TPS (초당 요청 수)")
+plt.grid(True)
+plt.legend()
+
+# 상태코드 비율 파이차트
+status_totals = {code: sum(c.values()) for code, c in status_tps.items()}
+plt.figure(figsize=(6, 6))
+plt.pie(status_totals.values(), labels=status_totals.keys(), autopct="%1.1f%%", startangle=90)
+plt.title("상태코드 비율")
+
+plt.show()
+
+
 
 
 
