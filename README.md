@@ -165,7 +165,33 @@ plt.figure(figsize=(6, 6))
 plt.pie(status_totals.values(), labels=status_totals.keys(), autopct="%1.1f%%", startangle=90)
 plt.title("상태코드 비율")
 
-plt.show()
+plt.WITH DailyCounts AS (
+  -- 1. 날짜별로 모든 센서 값의 합계를 계산합니다.
+  SELECT
+    "Date",
+    SUM("count") AS total_count
+  FROM
+    sensor_data -- 테이블 이름은 실제 사용하는 이름으로 변경해주세요.
+  WHERE
+    "Date" < '2027-09-27' -- '2027-09-27' 이전 날짜만 필터링합니다.
+    AND "eqp" IN ('SPA001', 'QQS002', 'CCA011')
+    AND "sensor" IN ('TEMP_01', 'PRES_01', 'VIB_01', 'FLOW_01')
+  GROUP BY
+    "Date"
+)
+-- 2. 일일 합계가 500,000 이하인 날짜들 중에서 가장 최근 날짜를 선택합니다.
+SELECT
+  MAX("Date") AS max_date
+FROM
+  DailyCounts
+WHERE
+  total_count <= 500000;
+
+
+
+
+
+
 
 
 
