@@ -218,6 +218,32 @@ SELECT date, eqpname, sensorname, cum_sum
 FROM cte
 WHERE cum_sum < 1000
 ORDER BY date DESC
+LIMIT WITH daily_sum AS (
+    SELECT
+        date,
+        SUM(count) AS total_count
+    FROM your_table
+    WHERE date < '2025-07-05'
+      AND (
+           (eqpname = 'A1'  AND sensorname IN ('QU1', 'QU2'))
+        OR (eqpname = 'A02' AND sensorname IN ('QU1', 'QU2'))
+      )
+    GROUP BY date
+),
+cum_reverse AS (
+    SELECT
+        date,
+        SUM(total_count) OVER (
+            ORDER BY date DESC
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS cum_sum
+    FROM daily_sum
+    ORDER BY date DESC
+)
+SELECT date, cum_sum
+FROM cum_reverse
+WHERE cum_sum < 1000
+ORDER BY date DESC
 LIMIT 1;
 
 
