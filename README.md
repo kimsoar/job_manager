@@ -1,4 +1,4 @@
-# JobManager
+ㅏ# JobManager
 
 ## 실행 방법
 
@@ -195,6 +195,26 @@ WHERE
     WHERE date < '2025-07-05'
 )
 SELECT date
+FROM cte
+WHERE cum_sum < 1000
+ORDER BY date DESC
+LIMIT WITH cte AS (
+    SELECT
+        date,
+        eqpname,
+        sensorname,
+        count,
+        SUM(count) OVER (
+            PARTITION BY eqpname, sensorname
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS cum_sum
+    FROM your_table
+    WHERE date < '2025-07-05'
+      AND eqpname = 'A01'
+      AND sensorname = 'QU1'
+)
+SELECT date, eqpname, sensorname, cum_sum
 FROM cte
 WHERE cum_sum < 1000
 ORDER BY date DESC
