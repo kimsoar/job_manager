@@ -185,7 +185,20 @@ SELECT
 FROM
   DailyCounts
 WHERE
-  total_count <= 500000;
+  total_count <= WITH cte AS (
+    SELECT
+        date,
+        name,
+        count,
+        SUM(count) OVER (PARTITION BY name ORDER BY date) AS cum_sum
+    FROM your_table
+    WHERE date < '2025-07-05'
+)
+SELECT date
+FROM cte
+WHERE cum_sum < 1000
+ORDER BY date DESC
+LIMIT 1;
 
 
 
