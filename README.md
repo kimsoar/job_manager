@@ -244,7 +244,68 @@ SELECT date, cum_sum
 FROM cum_reverse
 WHERE cum_sum < 1000
 ORDER BY date DESC
-LIMIT 1;
+LIMIT <script setup lang="ts">
+import { ref, computed } from "vue";
+
+interface Fruit {
+  id: number;
+  name: string;
+  color: string;
+}
+
+const fruits = ref<Fruit[]>([
+  { id: 1, name: "사과", color: "red" },
+  { id: 2, name: "바나나", color: "yellow" },
+  { id: 3, name: "Apple", color: "green" },
+  { id: 4, name: "Banana", color: "yellow" },
+  { id: 5, name: "123사탕", color: "pink" },
+]);
+
+const keyword = ref("");
+const isComposing = ref(false);
+
+// 단일 필드(name) 검색
+const filteredFruits = computed(() =>
+  fruits.value.filter(item =>
+    item.name.toLowerCase().includes(keyword.value.trim().toLowerCase())
+  )
+);
+
+// 이벤트 핸들러
+function onInput(e: Event) {
+  if (isComposing.value) return; // 조합 중일 땐 무시
+  keyword.value = (e.target as HTMLInputElement).value;
+}
+
+function onCompositionStart() {
+  isComposing.value = true;
+}
+
+function onCompositionEnd(e: CompositionEvent) {
+  isComposing.value = false;
+  keyword.value = (e.target as HTMLInputElement).value; // 조합 완료된 값 반영
+}
+</script>
+
+<template>
+  <div class="p-4">
+    <input
+      type="text"
+      placeholder="검색어 입력"
+      class="border p-2"
+      :value="keyword"
+      @input="onInput"
+      @compositionstart="onCompositionStart"
+      @compositionend="onCompositionEnd"
+    />
+
+    <ul class="mt-2 list-disc list-inside">
+      <li v-for="fruit in filteredFruits" :key="fruit.id">
+        {{ fruit.name }} ({{ fruit.color }})
+      </li>
+    </ul>
+  </div>
+</template>
 
 
 
