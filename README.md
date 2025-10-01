@@ -234,3 +234,91 @@ export function cn(...inputs: any[]) {
   }
 }
 
+
+
+<template>
+  <div ref="chartRef" style="width: 100%; height: 400px;"></div>
+</template>
+
+<script lang="ts" setup>
+import { ref, onMounted, onBeforeUnmount } from "vue";
+import * as echarts from "echarts/core";
+import { GridComponent, TooltipComponent, TitleComponent } from "echarts/components";
+import { BarChart, CustomChart } from "echarts/charts";
+import { CanvasRenderer } from "echarts/renderers";
+
+// 필요한 모듈 등록
+echarts.use([GridComponent, TooltipComponent, TitleComponent, BarChart, CustomChart, CanvasRenderer]);
+
+const chartRef = ref<HTMLDivElement | null>(null);
+let chart: echarts.ECharts | null = null;
+
+onMounted(() => {
+  if (chartRef.value) {
+    chart = echarts.init(chartRef.value);
+
+    // Gantt용 데이터
+    const tasks = [
+      { name: "기획", start: "2025-10-01", end: "2025-10-05" },
+      { name: "디자인", start: "2025-10-06", end: "2025-10-12" },
+      { name: "개발", start: "2025-10-10", end: "2025-10-25" },
+      { name: "테스트", start: "2025-10-20", end: "2025-10-30" },
+    ];
+
+    // 날짜를 number로 변환
+    const parseDate = (d: string) => new Date(d).getTime();
+
+    const option: echarts.EChartsOption = {
+      title: { text: "프로젝트 Gantt 차트" },
+      tooltip: {
+        formatter: (p: any) => {
+          return `${p.name}<br/>${new Date(p.value[0]).toLocaleDateString()} ~ ${new Date(p.value[1]).toLocaleDateString()}`;
+        },
+      },
+      grid: { left: 120, right: 40, top: 40, bottom: 40 },
+      xAxis: {
+        type: "time",
+        min: parseDate("2025-09-28"),
+        max: parseDate("2025-11-05"),
+        axisLabel: { formatter: (val: number) => new Date(val).toLocaleDateString() },
+      },
+      yAxis: {
+        type: "category",
+        data: tasks.map(t => t.name),
+      },
+      series: [
+        {
+          type: "custom",
+          renderItem: (params, api) => {
+            const categoryIndex = api.value(2); // y축 index
+            const start = api.coord([api.value(0), categoryIndex]);
+            const end = api.coord([api.value(1), categoryIndex]);
+            const height = api.size([0, 1])[1] * 0.6;
+
+            return {
+              type: "rect",
+              shape: {
+                x: start[0],
+                y: start[1] - height / 2,
+                width: end[0] - start[0],
+                height: height,
+              },
+              style: api.style(),
+            };
+          },
+          encode: { x: [0, 1], y: 2 },
+          data: tasks.map((t, i) => [parseDate(t.start), parseDate(t.end), i, t.name]),
+          itemStyle: { color: "#4CAF50" },
+        },
+      ],
+    };
+
+    chart.setOption(option);
+  }
+});
+
+onBeforeUnmount(() => {
+  chart?.dispose();
+});
+</script>
+
