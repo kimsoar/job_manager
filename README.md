@@ -322,3 +322,115 @@ onBeforeUnmount(() => {
 });
 </script>
 
+
+
+
+
+<template>
+  <div ref="chartRef" style="width: 100%; height: 500px;"></div>
+</template>
+
+<script lang="ts" setup>
+import { ref, onMounted, onBeforeUnmount } from "vue";
+import * as echarts from "echarts/core";
+import { GridComponent, TooltipComponent, TitleComponent, LegendComponent } from "echarts/components";
+import { CustomChart } from "echarts/charts";
+import { CanvasRenderer } from "echarts/renderers";
+
+echarts.use([GridComponent, TooltipComponent, TitleComponent, LegendComponent, CustomChart, CanvasRenderer]);
+
+const chartRef = ref<HTMLDivElement | null>(null);
+let chart: echarts.ECharts | null = null;
+
+// 샘플 데이터
+const statusData = [
+  { equipment: "설비1", start: "2025-10-01 08:00", end: "2025-10-01 12:00", state: "run" },
+  { equipment: "설비1", start: "2025-10-01 12:00", end: "2025-10-01 13:00", state: "idle" },
+  { equipment: "설비1", start: "2025-10-01 13:00", end: "2025-10-01 15:00", state: "bm" },
+
+  { equipment: "설비2", start: "2025-10-01 09:00", end: "2025-10-01 14:00", state: "run" },
+  { equipment: "설비2", start: "2025-10-01 14:00", end: "2025-10-01 16:00", state: "idle" },
+];
+
+// 상태별 색상
+const stateColors: Record<string, string> = {
+  run: "#4CAF50",
+  idle: "#FFC107",
+  bm: "#F44336"
+};
+
+const parseDate = (d: string) => new Date(d).getTime();
+
+// y축 설비 목록
+const equipments = Array.from(new Set(statusData.map(s => s.equipment)));
+
+onMounted(() => {
+  if (chartRef.value) {
+    chart = echarts.init(chartRef.value);
+
+    const option: echarts.EChartsOption = {
+      title: { text: "설비 상태 Gantt 차트" },
+      tooltip: {
+        formatter: (p: any) => {
+          const s = p.data.raw;
+          return `
+            <b>${s.equipment}</b><br/>
+            상태: ${s.state}<br/>
+            ${new Date(s.start).toLocaleTimeString()} ~ ${new Date(s.end).toLocaleTimeString()}
+          `;
+        },
+      },
+      legend: {
+        top: 30,
+        data: Object.keys(stateColors),
+        selectedMode: "multiple"
+      },
+      grid: { left: 120, right: 40, top: 80, bottom: 40 },
+      xAxis: {
+        type: "time",
+        axisLabel: { formatter: (val: number) => new Date(val).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+      },
+      yAxis: {
+        type: "category",
+        data: equipments,
+      },
+      series: Object.keys(stateColors).map(state => ({
+        name: state,
+        type: "custom",
+        renderItem: (params, api) => {
+          const categoryIndex = api.value(2);
+          const start = api.coord([api.value(0), categoryIndex]);
+          const end = api.coord([api.value(1), categoryIndex]);
+          const height = api.size([0, 1])[1] * 0.6;
+
+          return {
+            type: "rect",
+            shape: {
+              x: start[0],
+              y: start[1] - height / 2,
+              width: end[0] - start[0],
+              height: height,
+            },
+            style: { fill: stateColors[state] }
+          };
+        },
+        encode: { x: [0, 1], y: 2 },
+        data: statusData
+          .filter(s => s.state === state)
+          .map(s => ({
+            value: [parseDate(s.start), parseDate(s.end), equipments.indexOf(s.equipment)],
+            raw: s
+          })),
+      }))
+    };
+
+    chart.setOption(option);
+  }
+});
+
+onBeforeUnmount(() => {
+  chart?.dispose();
+});
+</script>
+
+
