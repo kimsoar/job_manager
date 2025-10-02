@@ -434,3 +434,31 @@ onBeforeUnmount(() => {
 </script>
 
 
+
+const equipments = ["설비1", "설비2", "설비3"];
+
+// 설비별 색상 매핑
+const equipmentColors: Record<string, string> = {
+  "설비1": "#4CAF50",
+  "설비2": "#FFC107",
+  "설비3": "#2196F3",
+};
+
+const option: echarts.EChartsOption = {
+  yAxis: {
+    type: "category",
+    data: equipments,
+    axisLabel: {
+      formatter: (value: string) => `{${value}|${value}}`,  // rich 스타일 키와 동일하게
+      rich: equipments.reduce((acc, eq) => {
+        acc[eq] = { color: equipmentColors[eq], fontWeight: "bold" };
+        return acc;
+      }, {} as Record<string, any>)
+    }
+  },
+  xAxis: {
+    type: "time"
+  },
+  series: [] // Gantt 시리즈 들어가는 부분
+};
+
