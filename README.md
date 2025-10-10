@@ -462,3 +462,42 @@ const option: echarts.EChartsOption = {
   series: [] // Gantt 시리즈 들어가는 부분
 };
 
+
+@echo off
+REM ============================================
+REM Spring Boot 2.x - 64GB 환경 / 2개 인스턴스 실행
+REM 각 인스턴스당: 힙 24GB, Metaspace 1GB
+REM ============================================
+
+set JAVA_OPTS=-Xms12g -Xmx24g ^
+ -XX:MaxMetaspaceSize=1024m ^
+ -XX:+UseG1GC ^
+ -XX:MaxGCPauseMillis=200 ^
+ -XX:InitiatingHeapOccupancyPercent=45 ^
+ -XX:+UseStringDeduplication ^
+ -XX:+HeapDumpOnOutOfMemoryError
+
+REM ============================================
+REM APP1 실행 (포트 8080)
+REM ============================================
+echo Starting app1 on port 8080...
+start "app1" cmd /c java %JAVA_OPTS% ^
+ -XX:HeapDumpPath=logs\app1_heapdump.hprof ^
+ -jar app.jar --server.port=8080 --spring.profiles.active=server1 ^
+ > logs\app1.log 2>&1
+
+REM ============================================
+REM APP2 실행 (포트 8081)
+REM ============================================
+echo Starting app2 on port 8081...
+start "app2" cmd /c java %JAVA_OPTS% ^
+ -XX:HeapDumpPath=logs\app2_heapdump.hprof ^
+ -jar app.jar --server.port=8081 --spring.profiles.active=server2 ^
+ > logs\app2.log 2>&1
+
+echo ===========================================================
+echo Both instances (app1 & app2) are starting...
+echo Check logs in the "logs" folder for details.
+echo ===========================================================
+pause
+ㅇ
