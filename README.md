@@ -1,503 +1,165 @@
-<style lang="scss" scoped>
-::v-deep [aria-roledescription='error'] {
-  display: none !important;
-}
-</style>
-
-
-
-// src/plugins/MermaidPlugin.ts
-import type MarkdownIt from "markdown-it";
-
-export function MermaidPlugin(md: MarkdownIt) {
-  const defaultFence =
-    md.renderer.rules.fence ||
-    ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
-
-  md.renderer.rules.fence = (tokens, idx, options, env, self) => {
-    const token = tokens[idx];
-    const lang = (token.info || "").trim();
-    const raw = token.content || "";
+💾 Heap 관련 설정
 
-    if (lang === "mermaid") {
-      // 인코딩해서 안전하게 data-attr에 담음
-      const encoded = encodeURIComponent(raw);
-      return `<div class="mermaid-block" data-raw-enc="${encoded}"></div>`;
-    }
-
-    return defaultFence(tokens, idx, options, env, self);
-  };
-}
-
-
-
-
-
-
-<template>
-  <div ref="container">
-    <vue-markdown-render
-      :source="content"
-      :plugins="[MermaidPlugin]"
-    />
-  </div>
-</template>
-
-<script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
-import mermaid from "mermaid";
-import { MermaidPlugin } from "@/plugins/MermaidPlugin";
-import VueMarkdownRender from "vue-markdown-render";
-
-interface Props {
-  content: string;
-}
-const props = defineProps<Props>();
-const container = ref<HTMLElement | null>(null);
-
-function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-async function renderMermaid() {
-  if (!container.value) return;
-
-  mermaid.initialize({ startOnLoad: false, theme: "default" });
-
-  const blocks = container.value.querySelectorAll<HTMLElement>(".mermaid-block");
-
-  for (const block of Array.from(blocks)) {
-    // dataset 대신 getAttribute 사용 (타입/네이밍 문제 회피)
-    const enc = block.getAttribute("data-raw-enc") || "";
-    const raw = enc ? decodeURIComponent(enc) : "";
-
-    try {
-      // mermaid.render는 버전 따라 반환형이 다를 수 있으니 안전하게 처리
-      const result = await (mermaid as any).render(
-        `mermaid-${Math.random().toString(36).slice(2)}`,
-        raw
-      );
+-Xms12g
+* 초기 힙(Heap) 크기를 12GB로 설정합니다.
+* 애플리케이션이 시작될 때 이 크기만큼 힙을 미리 확보하여 메모리 확장에 따른 GC 부하를 줄입니다.
 
-      // result가 string인지 객체인지 체크
-      let svg = "";
-      if (typeof result === "string") svg = result;
-      else if (result && typeof result === "object") svg = (result as any).svg ?? String(result);
-      else svg = String(result);
+-Xmx20g
+* 최대 힙 크기를 20GB로 제한합니다.
+* 이 값을 초과하면 OutOfMemoryError: Java heap space 발생.
+* GC가 이 범위 내에서만 동작하므로, 과도한 메모리 사용을 방지합니다.
+* (현재 RAM 64GB 기준으로 3개 서비스라면 20GB씩은 적절한 상한선입니다.)
 
-      block.innerHTML = svg;
-    } catch (err) {
-      // 파싱 실패 시 경고 + 원본 코드 표시 (이때는 HTML 이스케이프해서 안전하게 삽입)
-      block.innerHTML = `
-        <div style="color: #b02a37; font-weight: 600; margin-bottom: 6px;">
-          ⚠️ 이 mermaid 블록에는 문법 오류가 있습니다.
-        </div>
-        <pre style="background:#f8f9fa;padding:8px;border-radius:4px;overflow:auto;">
-          <code>${escapeHtml(raw)}</code>
-        </pre>
-      `;
-      // 필요하면 콘솔에 에러 출력
-      // console.error("mermaid render error:", err);
-    }
-  }
-}
+🧠 Metaspace
 
-onMounted(renderMermaid);
-watch(() => props.content, renderMermaid);
-</script>import type { Config } from "tailwindcss"
+-XX:MaxMetaspaceSize=1024m
+* 클래스 메타데이터를 저장하는 Metaspace 최대 크기를 1GB로 설정.
+* 클래스 로딩이 많지 않은 일반 Spring Boot 서비스라면 256~512MB도 충분하지만, JPA Entity나 많은 Bean을 사용하는 경우 1GB로 여유 있게 설정하는 게 안정적입니다.
 
+⚙️ GC (Garbage Collection) 설정
 
+-XX:+UseG1GC
+* G1(Garbage First) GC를 사용.
+* 대규모 힙(>4GB) 환경에서 짧은 stop-the-world 시간을 보장합니다.
 
+-XX:MaxGCPauseMillis=200
+* GC 일시 정지 시간을 200ms 이하로 목표로 조정.
+* 완전한 보장은 아니지만, G1이 이 목표를 기준으로 내부 튜닝을 수행합니다.
 
+-XX:InitiatingHeapOccupancyPercent=45
+* 힙이 45% 찼을 때 Concurrent GC(동시 수집) 시작.
+* GC를 미리 수행하여 Full GC를 방지하고 응답 지연을 줄입니다.
 
+-XX:+UseStringDeduplication
+* 같은 문자열 리터럴을 중복 제거하여 메모리 절약.
+* 특히 JSON 직렬화나 반복된 문자열이 많은 경우 효과적입니다.
 
-tailwindcss
+-XX:+HeapDumpOnOutOfMemoryError
+* OutOfMemoryError 발생 시 힙덤프(.hprof)를 생성.
+* 이후 문제 분석에 사용합니다.
 
-const config: Config = {
-  darkMode: "class", // 여전히 동일
-  theme: {
-    extend: {
-      colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
-    },
-  },
-  plugins: [],
-}
+🧵 Spring 비동기 / 쓰레드풀 설정
 
-export default config
+-Dspring.task.execution.pool.max-size=10
+* 비동기 @Async나 TaskExecutor 사용 시 최대 쓰레드 수를 10개로 제한.
+* CPU 코어 수에 맞춰 조정 (예: 8코어 → 8~12개 권장).
 
+-Dspring.task.execution.pool.queue-capacity=50
+* 대기열 크기 설정 (대기 중인 비동기 작업 수).
+* 큐가 가득 차면 RejectedExecutionException 발생 → 백프레셔 역할 수행.
 
+📦 파일 업로드 제한
 
+-Dspring.servlet.multipart.max-file-size=1GB
+-Dspring.servlet.multipart.max-request-size=1GB
+* 업로드 파일과 요청 전체 크기 모두 1GB 이하로 제한.
+* 대용량 업로드 시 메모리 폭주를 방지.
 
-ㅇ
-global
-@import "tailwindcss";
+🌐 Tomcat (내장 서버) 설정
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+-Dserver.tomcat.max-threads=200
+* 요청을 처리하는 최대 워커 쓰레드 수.
+* 요청이 200개를 초과하면 큐에 대기하게 됩니다.
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+-Dserver.tomcat.accept-count=100
+* 연결 대기열(큐) 크기.
+* 200개 쓰레드가 모두 사용 중일 때 추가로 100개의 요청을 대기시킵니다.
+* 그 이상이면 503(Service Unavailable) 발생.
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+-Dserver.tomcat.connection-timeout=20000
+* 클라이언트가 요청을 보낸 후 응답이 없을 때 연결을 끊는 시간(ms).
+* 20초로 설정되어 있으므로, 너무 오래 걸리는 요청은 끊어줍니다.
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+✅ 정리
+구분	주요 옵션	역할
+JVM 메모리	-Xms, -Xmx	힙 크기 조정, 안정적인 GC 동작
+GC	UseG1GC, MaxGCPauseMillis 등	짧은 지연시간 유지
+Metaspace	MaxMetaspaceSize	클래스 메타데이터 메모리 제한
+비동기	spring.task.execution.*	백프레셔, 비동기 처리 조절
+업로드	multipart.*	대용량 요청 방어
+Tomcat	max-threads, accept-count	동시 요청 및 큐 조절
 
-    --radius: 0.5rem;
-  }
-}
 
 
 
 
-
-
-d
-
-d
-
-import { clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs: any[]) {
-  return twMerge(clsx(inputs))
-}
-
-
-
-ㅇ
-@import "tailwindcss";
-
-/* ✅ theme 확장 */
-@theme {
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
-}
-
-/* ✅ base layer: shadcn-vue 테마 변수 */
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-  }
-}
-
-
-
-<template>
-  <div ref="chartRef" style="width: 100%; height: 400px;"></div>
-</template>
-
-<script lang="ts" setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
-import * as echarts from "echarts/core";
-import { GridComponent, TooltipComponent, TitleComponent } from "echarts/components";
-import { BarChart, CustomChart } from "echarts/charts";
-import { CanvasRenderer } from "echarts/renderers";
-
-// 필요한 모듈 등록
-echarts.use([GridComponent, TooltipComponent, TitleComponent, BarChart, CustomChart, CanvasRenderer]);
-
-const chartRef = ref<HTMLDivElement | null>(null);
-let chart: echarts.ECharts | null = null;
-
-onMounted(() => {
-  if (chartRef.value) {
-    chart = echarts.init(chartRef.value);
-
-    // Gantt용 데이터
-    const tasks = [
-      { name: "기획", start: "2025-10-01", end: "2025-10-05" },
-      { name: "디자인", start: "2025-10-06", end: "2025-10-12" },
-      { name: "개발", start: "2025-10-10", end: "2025-10-25" },
-      { name: "테스트", start: "2025-10-20", end: "2025-10-30" },
-    ];
-
-    // 날짜를 number로 변환
-    const parseDate = (d: string) => new Date(d).getTime();
-
-    const option: echarts.EChartsOption = {
-      title: { text: "프로젝트 Gantt 차트" },
-      tooltip: {
-        formatter: (p: any) => {
-          return `${p.name}<br/>${new Date(p.value[0]).toLocaleDateString()} ~ ${new Date(p.value[1]).toLocaleDateString()}`;
-        },
-      },
-      grid: { left: 120, right: 40, top: 40, bottom: 40 },
-      xAxis: {
-        type: "time",
-        min: parseDate("2025-09-28"),
-        max: parseDate("2025-11-05"),
-        axisLabel: { formatter: (val: number) => new Date(val).toLocaleDateString() },
-      },
-      yAxis: {
-        type: "category",
-        data: tasks.map(t => t.name),
-      },
-      series: [
-        {
-          type: "custom",
-          renderItem: (params, api) => {
-            const categoryIndex = api.value(2); // y축 index
-            const start = api.coord([api.value(0), categoryIndex]);
-            const end = api.coord([api.value(1), categoryIndex]);
-            const height = api.size([0, 1])[1] * 0.6;
-
-            return {
-              type: "rect",
-              shape: {
-                x: start[0],
-                y: start[1] - height / 2,
-                width: end[0] - start[0],
-                height: height,
-              },
-              style: api.style(),
-            };
-          },
-          encode: { x: [0, 1], y: 2 },
-          data: tasks.map((t, i) => [parseDate(t.start), parseDate(t.end), i, t.name]),
-          itemStyle: { color: "#4CAF50" },
-        },
-      ],
-    };
-
-    chart.setOption(option);
-  }
-});
-
-onBeforeUnmount(() => {
-  chart?.dispose();
-});
-</script>
-
-
-
-
-
-<template>
-  <div ref="chartRef" style="width: 100%; height: 500px;"></div>
-</template>
-
-<script lang="ts" setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
-import * as echarts from "echarts/core";
-import { GridComponent, TooltipComponent, TitleComponent, LegendComponent } from "echarts/components";
-import { CustomChart } from "echarts/charts";
-import { CanvasRenderer } from "echarts/renderers";
-
-echarts.use([GridComponent, TooltipComponent, TitleComponent, LegendComponent, CustomChart, CanvasRenderer]);
-
-const chartRef = ref<HTMLDivElement | null>(null);
-let chart: echarts.ECharts | null = null;
-
-// 샘플 데이터
-const statusData = [
-  { equipment: "설비1", start: "2025-10-01 08:00", end: "2025-10-01 12:00", state: "run" },
-  { equipment: "설비1", start: "2025-10-01 12:00", end: "2025-10-01 13:00", state: "idle" },
-  { equipment: "설비1", start: "2025-10-01 13:00", end: "2025-10-01 15:00", state: "bm" },
-
-  { equipment: "설비2", start: "2025-10-01 09:00", end: "2025-10-01 14:00", state: "run" },
-  { equipment: "설비2", start: "2025-10-01 14:00", end: "2025-10-01 16:00", state: "idle" },
-];
-
-// 상태별 색상
-const stateColors: Record<string, string> = {
-  run: "#4CAF50",
-  idle: "#FFC107",
-  bm: "#F44336"
-};
-
-const parseDate = (d: string) => new Date(d).getTime();
-
-// y축 설비 목록
-const equipments = Array.from(new Set(statusData.map(s => s.equipment)));
-
-onMounted(() => {
-  if (chartRef.value) {
-    chart = echarts.init(chartRef.value);
-
-    const option: echarts.EChartsOption = {
-      title: { text: "설비 상태 Gantt 차트" },
-      tooltip: {
-        formatter: (p: any) => {
-          const s = p.data.raw;
-          return `
-            <b>${s.equipment}</b><br/>
-            상태: ${s.state}<br/>
-            ${new Date(s.start).toLocaleTimeString()} ~ ${new Date(s.end).toLocaleTimeString()}
-          `;
-        },
-      },
-      legend: {
-        top: 30,
-        data: Object.keys(stateColors),
-        selectedMode: "multiple"
-      },
-      grid: { left: 120, right: 40, top: 80, bottom: 40 },
-      xAxis: {
-        type: "time",
-        axisLabel: { formatter: (val: number) => new Date(val).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-      },
-      yAxis: {
-        type: "category",
-        data: equipments,
-      },
-      series: Object.keys(stateColors).map(state => ({
-        name: state,
-        type: "custom",
-        renderItem: (params, api) => {
-          const categoryIndex = api.value(2);
-          const start = api.coord([api.value(0), categoryIndex]);
-          const end = api.coord([api.value(1), categoryIndex]);
-          const height = api.size([0, 1])[1] * 0.6;
-
-          return {
-            type: "rect",
-            shape: {
-              x: start[0],
-              y: start[1] - height / 2,
-              width: end[0] - start[0],
-              height: height,
-            },
-            style: { fill: stateColors[state] }
-          };
-        },
-        encode: { x: [0, 1], y: 2 },
-        data: statusData
-          .filter(s => s.state === state)
-          .map(s => ({
-            value: [parseDate(s.start), parseDate(s.end), equipments.indexOf(s.equipment)],
-            raw: s
-          })),
-      }))
-    };
-
-    chart.setOption(option);
-  }
-});
-
-onBeforeUnmount(() => {
-  chart?.dispose();
-});
-</script>
-
-
-
-const equipments = ["설비1", "설비2", "설비3"];
-
-// 설비별 색상 매핑
-const equipmentColors: Record<string, string> = {
-  "설비1": "#4CAF50",
-  "설비2": "#FFC107",
-  "설비3": "#2196F3",
-};
-
-const option: echarts.EChartsOption = {
-  yAxis: {
-    type: "category",
-    data: equipments,
-    axisLabel: {
-      formatter: (value: string) => `{${value}|${value}}`,  // rich 스타일 키와 동일하게
-      rich: equipments.reduce((acc, eq) => {
-        acc[eq] = { color: equipmentColors[eq], fontWeight: "bold" };
-        return acc;
-      }, {} as Record<string, any>)
-    }
-  },
-  xAxis: {
-    type: "time"
-  },
-  series: [] // Gantt 시리즈 들어가는 부분
-};
-
+🟩 start.bat (안정화 버전)
 
 @echo off
-REM ============================================
-REM Spring Boot 2.x - 64GB 환경 / 2개 인스턴스 실행
-REM 각 인스턴스당: 힙 24GB, Metaspace 1GB
-REM ============================================
+REM ===========================================================
+REM Spring Boot 2.x - 64GB 환경 / 2개 인스턴스 실행 (안정화 버전)
+REM 위치: D:\test
+REM 각 인스턴스당: 힙 20GB, Metaspace 1GB
+REM 스레드 풀 + 백프레셔 설정 포함
+REM ===========================================================
 
-set JAVA_OPTS=-Xms12g -Xmx24g ^
+REM 1️⃣ 콘솔 UTF-8 설정
+chcp 65001 > nul
+
+REM 2️⃣ 작업 폴더 이동
+cd /d D:\test
+
+REM 3️⃣ 로그 폴더 확인 / 없으면 생성
+if not exist logs mkdir logs
+
+REM 4️⃣ 공통 JVM 옵션
+set JAVA_OPTS=-Xms12g -Xmx20g ^
  -XX:MaxMetaspaceSize=1024m ^
  -XX:+UseG1GC ^
  -XX:MaxGCPauseMillis=200 ^
  -XX:InitiatingHeapOccupancyPercent=45 ^
  -XX:+UseStringDeduplication ^
- -XX:+HeapDumpOnOutOfMemoryError
+ -XX:+HeapDumpOnOutOfMemoryError ^
+ -Dspring.task.execution.pool.max-size=10 ^
+ -Dspring.task.execution.pool.queue-capacity=50 ^
+ -Dspring.servlet.multipart.max-file-size=1GB ^
+ -Dspring.servlet.multipart.max-request-size=1GB ^
+ -Dserver.tomcat.max-threads=200 ^
+ -Dserver.tomcat.accept-count=100 ^
+ -Dserver.tomcat.connection-timeout=20000
 
-REM ============================================
+REM ===========================================================
 REM APP1 실행 (포트 8080)
-REM ============================================
+REM ===========================================================
 echo Starting app1 on port 8080...
 start "app1" cmd /c java %JAVA_OPTS% ^
+ -verbose:gc ^
+ -Xlog:gc*:logs\app1_gc.log:time,uptime,level,tags ^
  -XX:HeapDumpPath=logs\app1_heapdump.hprof ^
  -jar app.jar --server.port=8080 --spring.profiles.active=server1 ^
  > logs\app1.log 2>&1
 
-REM ============================================
+REM ===========================================================
 REM APP2 실행 (포트 8081)
-REM ============================================
+REM ===========================================================
 echo Starting app2 on port 8081...
 start "app2" cmd /c java %JAVA_OPTS% ^
+ -verbose:gc ^
+ -Xlog:gc*:logs\app2_gc.log:time,uptime,level,tags ^
  -XX:HeapDumpPath=logs\app2_heapdump.hprof ^
  -jar app.jar --server.port=8081 --spring.profiles.active=server2 ^
  > logs\app2.log 2>&1
 
 echo ===========================================================
-echo Both instances (app1 & app2) are starting...
+echo Both instances (app1 & app2) are starting in D:\test...
+echo ThreadPool + Backpressure configuration applied.
 echo Check logs in the "logs" folder for details.
 echo ===========================================================
 pause
-ㅇ
+
+🟥 stop.bat (변경 없음)
+
+@echo off
+REM ===========================================================
+REM Stop Spring Boot 2.x instances (app1 & app2)
+REM ===========================================================
+echo Stopping app1 and app2...
+
+taskkill /FI "WINDOWTITLE eq app1" /T /F
+taskkill /FI "WINDOWTITLE eq app2" /T /F
+
+echo ===========================================================
+echo Both instances stopped.
+echo ===========================================================
+pause
+
