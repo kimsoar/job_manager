@@ -114,7 +114,7 @@ set JAVA_OPTS=-Xms12g -Xmx20g ^
  -Dspring.task.execution.pool.queue-capacity=50 ^
  -Dspring.servlet.multipart.max-file-size=1GB ^
  -Dspring.servlet.multipart.max-request-size=1GB ^
- -Dserver.tomcat.max-threads=200 ^
+ -Dserver.tomcat.max-threads=100 ^
  -Dserver.tomcat.accept-count=100 ^
  -Dserver.tomcat.connection-timeout=20000
 
@@ -162,4 +162,44 @@ echo ===========================================================
 echo Both instances stopped.
 echo ===========================================================
 pause
+
+
+
+
+
+
+
+원하시면 제가 Heap 20GB 기준 동시 요청별 메모리 시뮬레이션을 계산해서 몇 건까지 안전하게 처리 가능한지도 보여드릴 수 있어요.
+그걸 해드릴까요?
+
+그래 부탁해
+
+
+좋아요. 지금 조건을 정리하고, Heap 20GB 기준 단일 요청 4GB 처리 시 동시 요청별 메모리 상황을 계산해보겠습니다.
+
+1️⃣ 가정
+* 서버 RAM: 64GB (다른 서비스 + OS 24GB 가정 → 사용 가능 RAM 40GB)
+* JVM Heap: -Xms12g -Xmx20g
+* 단일 요청 데이터: 4GB (객체 + JSON 직렬화 버퍼 포함)
+* G1GC: Concurrent GC 진행
+* 안전 마진: Heap 최대 20GB 사용 중 약 20~25%는 GC overhead + JVM internal 사용
+즉, 실질적으로 단일 요청이 4~5GB Heap을 사용한다고 가정
+
+2️⃣ 요청별 Heap 점유 예상
+동시 요청 수	요청당 메모리	총 Heap 점유	주석
+1	4~5GB	4~5GB	Heap 20GB 여유 충분, 안전
+2	4~5GB	8~10GB	Heap 20GB 여유 충분, GC 부담 있음
+3	4~5GB	12~15GB	Heap 20GB 중 ~75% 점유 → Full GC 발생 가능
+4	4~5GB	16~20GB	Heap 거의 최대 → Full GC 반복 가능, 성능 급격히 저하
+5	4~5GB	20~25GB	Heap 초과 → OOM 발생 가능
+결론: 동시 2건 정도까지 안전, 3건 이상 위험
+
+3️⃣ Full GC 발생 시점
+* G1GC: InitiatingHeapOccupancyPercent=40%
+* Heap 20GB → 40% = 8GB 사용 시 Concurrent GC 시작
+* 동시 2건 → 총 8~10GB 사용 → GC 시작 → 처리 가능
+* 동시 3건 → 총 12~15GB → GC가 계속 수행되면서 Full GC 발생 → 응답 지연
+
+4️⃣ 안전 전략
+
 
