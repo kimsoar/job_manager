@@ -1,3 +1,5 @@
+
+
 💾 Heap 관련 설정
 
 -Xms12g
@@ -114,9 +116,17 @@ set JAVA_OPTS=-Xms12g -Xmx20g ^
  -Dspring.task.execution.pool.queue-capacity=50 ^
  -Dspring.servlet.multipart.max-file-size=1GB ^
  -Dspring.servlet.multipart.max-request-size=1GB ^
- -Dserver.tomcat.max-threads=100 ^
+ -Dserver.tomcat.max-threads=200 ^
  -Dserver.tomcat.accept-count=100 ^
- -Dserver.tomcat.connection-timeout=20000
+
+ -Dserver.tomcat.connection-timeout=20000 ^
+ -Dspring.servlet.multipart.max-file-size=1GB ^
+ -Dspring.servlet.multipart.max-request-size=1GB
+
+
+REM  -Dserver.tomcat.max-threads=200 ^ 에서 10으로 조정
+REM   -Dserver.tomcat.connection-timeout=20000 에서 500000으로 조정
+
 
 REM ===========================================================
 REM APP1 실행 (포트 8080)
@@ -164,8 +174,8 @@ echo ===========================================================
 pause
 
 
-
-
+————————————————————————
+발생 원인
 
 
 
@@ -192,15 +202,10 @@ JVM은 heap이 꽉 차면 Full GC를 실행합니다. 그런데 Full GC로도 
 
 
 
-
-
-
-
+——————
 
 원하시면 제가 Heap 20GB 기준 동시 요청별 메모리 시뮬레이션을 계산해서 몇 건까지 안전하게 처리 가능한지도 보여드릴 수 있어요.
 그걸 해드릴까요?
-
-그래 부탁해
 
 
 좋아요. 지금 조건을 정리하고, Heap 20GB 기준 단일 요청 4GB 처리 시 동시 요청별 메모리 상황을 계산해보겠습니다.
@@ -229,5 +234,26 @@ JVM은 heap이 꽉 차면 Full GC를 실행합니다. 그런데 Full GC로도 
 * 동시 3건 → 총 12~15GB → GC가 계속 수행되면서 Full GC 발생 → 응답 지연
 
 4️⃣ 안전 전략
+1. Tomcat maxThreads 제한 → 동시 요청 2~3건 유지
+
+-Dserver.tomcat.max-threads=3
+-Dserver.tomcat.accept-count=10
+1. Task Executor 제한 → @Async, Scheduler 동시 실행 제한
+
+-Dspring.task.execution.pool.max-size=2
+-Dspring.task.execution.pool.queue-capacity=5
+1. Heap 점유 모니터링
+* GC 로그를 통해 요청 처리 중 OldGen 점유율 확인
+* 필요 시 InitiatingHeapOccupancyPercent 낮춰서 GC 조기 시작
+
+5️⃣ 요약
+항목	권장
+JVM Heap	-Xms12g -Xmx20g
+단일 요청	4GB
+동시 요청	2건 안전, 3건 이상 GC 위험
+Tomcat maxThreads	2~3
+Task Executor	2
+GC 튜닝	G1GC, InitiatingHeapOccupancyPercent=40~45, MaxGCPauseMillis=250
+핵심: Heap 제한 때문에 동시 요청 수 제어가 필수입니다. IIS Load Balancer가 여러 Jar에 요청 분산 → 전체 동시 요청 관리 가능
 
 
