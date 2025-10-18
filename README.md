@@ -254,6 +254,38 @@ JVM Heap	-Xms12g -Xmx20g
 Tomcat maxThreads	2~3
 Task Executor	2
 GC 튜닝	G1GC, InitiatingHeapOccupancyPercent=40~45, MaxGCPauseMillis=250
+
+
+
+using System;
+using System.Collections.Generic;
+
+public class DateTimeSplitter
+{
+    public static List<(DateTime Start, DateTime End)> SplitByDays(DateTime start, DateTime end, int intervalDays)
+    {
+        var result = new List<(DateTime Start, DateTime End)>();
+
+        var currentStart = start;
+
+        while (currentStart <= end)
+        {
+            // 구간 종료일 = 시작일 + (intervalDays - 1)
+            var currentEnd = currentStart.AddDays(intervalDays - 1);
+
+            // 종료일이 전체 end보다 크면 end로 조정
+            if (currentEnd > end)
+                currentEnd = end;
+
+            result.Add((currentStart, currentEnd));
+
+            // 다음 구간 시작일
+            currentStart = currentEnd.AddDays(1);
+        }
+
+        return result;
+    }
+}
 핵심: Heap 제한 때문에 동시 요청 수 제어가 필수입니다. IIS Load Balancer가 여러 Jar에 요청 분산 → 전체 동시 요청 관리 가능
 
 
