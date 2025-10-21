@@ -1,4 +1,42 @@
 <igDP:XamDataGrid
+    AutoGenerateFields="False"
+    DataSource="{Binding Items}"
+    Theme="Office2013">
+
+    <igDP:XamDataGrid.FieldLayouts>
+        <igDP:FieldLayout>
+            <igDP:FieldLayout.Fields>
+
+                <igDP:Field Name="Name" Label="이름" />
+                <igDP:Field Name="Age" Label="나이" />
+
+                <!-- 버튼이 들어가는 필드 -->
+                <igDP:TemplateField Name="Action" Label="작업">
+                    <igDP:TemplateField.CellValuePresenterStyle>
+                        <Style TargetType="igDP:CellValuePresenter">
+                            <Setter Property="ContentTemplate">
+                                <Setter.Value>
+                                    <DataTemplate>
+                                        <Button Content="삭제"
+                                                Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=igDP:XamDataGrid}}"
+                                                CommandParameter="{Binding Data}"
+                                                Padding="5,2"
+                                                Margin="5,0"/>
+                                    </DataTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </igDP:TemplateField.CellValuePresenterStyle>
+                </igDP:TemplateField>
+
+            </igDP:FieldLayout.Fields>
+        </igDP:FieldLayout>
+    </igDP:XamDataGrid.FieldLayouts>
+</igDP:XamDataGrid>
+
+
+
+<igDP:XamDataGrid
     DataSource="{Binding Items}"
     AutoGenerateFields="False">
 
