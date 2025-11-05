@@ -1,404 +1,217 @@
-<igDP:XamDataGrid
-    AutoGenerateFields="False"
-    DataSource="{Binding Items}"
-    Theme="Office2013">
-
-    <igDP:XamDataGrid.FieldLayouts>
-        <igDP:FieldLayout>
-            <igDP:FieldLayout.Fields>
-
-                <igDP:Field Name="Name" Label="이름" />
-                <igDP:Field Name="Age" Label="나이" />
-
-                <!-- 버튼이 들어가는 필드 -->
-                <igDP:TemplateField Name="Action" Label="작업">
-                    <igDP:TemplateField.CellValuePresenterStyle>
-                        <Style TargetType="igDP:CellValuePresenter">
-                            <Setter Property="ContentTemplate">
-                                <Setter.Value>
-                                    <DataTemplate>
-                                        <Button Content="삭제"
-                                                Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=igDP:XamDataGrid}}"
-                                                CommandParameter="{Binding Data}"
-                                                Padding="5,2"
-                                                Margin="5,0"/>
-                                    </DataTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </igDP:TemplateField.CellValuePresenterStyle>
-                </igDP:TemplateField>
-
-            </igDP:FieldLayout.Fields>
-        </igDP:FieldLayout>
-    </igDP:XamDataGrid.FieldLayouts>
-</igDP:XamDataGrid>
-
-
-
-<igDP:XamDataGrid
-    DataSource="{Binding Items}"
-    AutoGenerateFields="False">
-
-    <igDP:XamDataGrid.FieldLayouts>
-        <igDP:FieldLayout>
-
-            <igDP:FieldLayout.Fields>
-                <igDP:Field Name="Name" Label="이름" />
-                <igDP:Field Name="Age" Label="나이" />
-
-                <!-- 버튼 필드 -->
-                <igDP:TemplateField Name="Action" Label="작업">
-                    <igDP:TemplateField.CellValuePresenterStyle>
-                        <Style TargetType="igDP:CellValuePresenter">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="igDP:CellValuePresenter">
-                                        <Button Content="삭제"
-                                                Command="{Binding DataContext.DeleteCommand, 
-                                                                  RelativeSource={RelativeSource AncestorType=igDP:XamDataGrid}}"
-                                                CommandParameter="{Binding Data}"
-                                                Padding="5,2"
-                                                Margin="5,0" />
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </igDP:TemplateField.CellValuePresenterStyle>
-                </igDP:TemplateField>
-
-            </igDP:FieldLayout.Fields>
-        </igDP:FieldLayout>
-    </igDP:XamDataGrid.FieldLayouts>
-</igDP:XamDataGrid>
-
-
-
-<igDP:XamDataGrid
-    x:Name="DataGrid"
-    DataSource="{Binding Items}"
-    AutoGenerateFields="False">
-
-    <igDP:XamDataGrid.FieldLayouts>
-        <igDP:FieldLayout>
-            <igDP:FieldLayout.Fields>
-
-                <!-- 일반 텍스트 필드 -->
-                <igDP:Field Name="Name" Label="이름" />
-
-                <igDP:Field Name="Age" Label="나이" />
-
-                <!-- 버튼이 들어가는 필드 -->
-                <igDP:TemplateField Name="Action" Label="작업">
-                    <igDP:TemplateField.CellValuePresenterStyle>
-                        <Style TargetType="igDP:CellValuePresenter">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <DataTemplate>
-                                        <Button Content="삭제"
-                                                Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=igDP:XamDataGrid}}"
-                                                CommandParameter="{Binding Data}"
-                                                Padding="5,2"
-                                                Margin="5,0"
-                                                />
-                                    </DataTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </igDP:TemplateField.CellValuePresenterStyle>
-                </igDP:TemplateField>
+🧩 최종 FastAPI API 설계안
+1️⃣ 기본 정보 (공용)
+GET /models                     # 지원하는 LLM 모델 목록 조회
+GET /prompts                    # 샘플 프롬프트 목록 조회
 
-            </igDP:FieldLayout.Fields>
-        </igDP:FieldLayout>
-    </igDP:XamDataGrid.FieldLayouts>
-</igDP:XamDataGrid>
 
-💾 Heap 관련 설정
+공용 리소스 — 로그인 없이 접근 가능
 
--Xms12g
-* 초기 힙(Heap) 크기를 12GB로 설정합니다.
-* 애플리케이션이 시작될 때 이 크기만큼 힙을 미리 확보하여 메모리 확장에 따른 GC 부하를 줄입니다.
+2️⃣ 대화 (Conversation)
+GET    /conversations                 # 사용자의 전체 대화 목록 조회
+POST   /conversations                 # 새 대화 생성 (첫 메시지 포함 가능)
+GET    /conversations/{id}            # 특정 대화 상세 조회
+PUT    /conversations/{id}            # 대화 제목 또는 속성 수정
+DELETE /conversations/{id}            # 대화 삭제
 
--Xmx20g
-* 최대 힙 크기를 20GB로 제한합니다.
-* 이 값을 초과하면 OutOfMemoryError: Java heap space 발생.
-* GC가 이 범위 내에서만 동작하므로, 과도한 메모리 사용을 방지합니다.
-* (현재 RAM 64GB 기준으로 3개 서비스라면 20GB씩은 적절한 상한선입니다.)
+POST   /conversations/{id}/messages   # 메시지 추가 및 LLM 응답 요청
+GET    /conversations/{id}/messages   # 대화 메시지 전체 히스토리 조회
 
-🧠 Metaspace
+GET    /conversations/{id}/stream     # LLM 응답을 SSE로 실시간 스트리밍
+POST   /conversations/{id}/feedback   # 대화 또는 메시지 피드백 제출
 
--XX:MaxMetaspaceSize=1024m
-* 클래스 메타데이터를 저장하는 Metaspace 최대 크기를 1GB로 설정.
-* 클래스 로딩이 많지 않은 일반 Spring Boot 서비스라면 256~512MB도 충분하지만, JPA Entity나 많은 Bean을 사용하는 경우 1GB로 여유 있게 설정하는 게 안정적입니다.
-
-⚙️ GC (Garbage Collection) 설정
-
--XX:+UseG1GC
-* G1(Garbage First) GC를 사용.
-* 대규모 힙(>4GB) 환경에서 짧은 stop-the-world 시간을 보장합니다.
-
--XX:MaxGCPauseMillis=200
-* GC 일시 정지 시간을 200ms 이하로 목표로 조정.
-* 완전한 보장은 아니지만, G1이 이 목표를 기준으로 내부 튜닝을 수행합니다.
 
--XX:InitiatingHeapOccupancyPercent=45
-* 힙이 45% 찼을 때 Concurrent GC(동시 수집) 시작.
-* GC를 미리 수행하여 Full GC를 방지하고 응답 지연을 줄입니다.
+💬 ChatGPT와 유사한 구조로 “대화 → 메시지” 관계 명확
+💡 실시간 응답(SSE)은 /stream 하위로 통합
 
--XX:+UseStringDeduplication
-* 같은 문자열 리터럴을 중복 제거하여 메모리 절약.
-* 특히 JSON 직렬화나 반복된 문자열이 많은 경우 효과적입니다.
-
--XX:+HeapDumpOnOutOfMemoryError
-* OutOfMemoryError 발생 시 힙덤프(.hprof)를 생성.
-* 이후 문제 분석에 사용합니다.
-
-🧵 Spring 비동기 / 쓰레드풀 설정
-
--Dspring.task.execution.pool.max-size=10
-* 비동기 @Async나 TaskExecutor 사용 시 최대 쓰레드 수를 10개로 제한.
-* CPU 코어 수에 맞춰 조정 (예: 8코어 → 8~12개 권장).
-
--Dspring.task.execution.pool.queue-capacity=50
-* 대기열 크기 설정 (대기 중인 비동기 작업 수).
-* 큐가 가득 차면 RejectedExecutionException 발생 → 백프레셔 역할 수행.
-
-📦 파일 업로드 제한
-
--Dspring.servlet.multipart.max-file-size=1GB
--Dspring.servlet.multipart.max-request-size=1GB
-* 업로드 파일과 요청 전체 크기 모두 1GB 이하로 제한.
-* 대용량 업로드 시 메모리 폭주를 방지.
-
-🌐 Tomcat (내장 서버) 설정
-
--Dserver.tomcat.max-threads=200
-* 요청을 처리하는 최대 워커 쓰레드 수.
-* 요청이 200개를 초과하면 큐에 대기하게 됩니다.
-
--Dserver.tomcat.accept-count=100
-* 연결 대기열(큐) 크기.
-* 200개 쓰레드가 모두 사용 중일 때 추가로 100개의 요청을 대기시킵니다.
-* 그 이상이면 503(Service Unavailable) 발생.
-
--Dserver.tomcat.connection-timeout=20000
-* 클라이언트가 요청을 보낸 후 응답이 없을 때 연결을 끊는 시간(ms).
-* 20초로 설정되어 있으므로, 너무 오래 걸리는 요청은 끊어줍니다.
-
-✅ 정리
-구분	주요 옵션	역할
-JVM 메모리	-Xms, -Xmx	힙 크기 조정, 안정적인 GC 동작
-GC	UseG1GC, MaxGCPauseMillis 등	짧은 지연시간 유지
-Metaspace	MaxMetaspaceSize	클래스 메타데이터 메모리 제한
-비동기	spring.task.execution.*	백프레셔, 비동기 처리 조절
-업로드	multipart.*	대용량 요청 방어
-Tomcat	max-threads, accept-count	동시 요청 및 큐 조절
-
-
-
+3️⃣ 공유 (Share)
+GET    /shares                        # 공유된 대화 목록 (관리자용 또는 내 공유)
+POST   /shares                        # 새로운 공유 생성 (body: conversation_id)
+GET    /shares/{id}                   # 공유된 대화 조회 (읽기 전용)
+POST   /shares/{id}/clone             # 공유된 대화로부터 새 대화 생성
+DELETE /shares/{id}                   # 공유 취소 또는 삭제
 
 
-🟩 start.bat (안정화 버전)
+샘플 (Sample)
+GET    /samples                       # 샘플 대화 목록 조회
+POST   /samples                       # 새로운 샘플 생성 (body: conversation_id)
+GET    /samples/{id}                  # 샘플 대화 조회
+POST   /samples/{id}/clone            # 샘플 대화로부터 새 대화 생성
 
-@echo off
-REM ===========================================================
-REM Spring Boot 2.x - 64GB 환경 / 2개 인스턴스 실행 (안정화 버전)
-REM 위치: D:\test
-REM 각 인스턴스당: 힙 20GB, Metaspace 1GB
-REM 스레드 풀 + 백프레셔 설정 포함
-REM ===========================================================
 
-REM 1️⃣ 콘솔 UTF-8 설정
-chcp 65001 > nul
+📤 공유는 “스냅샷 → 복제 → 새 대화 생성” 흐름으로 설계
 
-REM 2️⃣ 작업 폴더 이동
-cd /d D:\test
+4️⃣ 사용자 수집 자료 (Collector)
+GET    /collector/items         # 수집 자료 목록 조회
+POST   /collector/items         # 수집 자료 등록
+DELETE /collector/items/{id}    # 수집 자료 삭제
 
-REM 3️⃣ 로그 폴더 확인 / 없으면 생성
-if not exist logs mkdir logs
+📚 사용자가 참고용으로 업로드/저장한 자료 관리용
 
-REM 4️⃣ 공통 JVM 옵션
-set JAVA_OPTS=-Xms12g -Xmx20g ^
- -XX:MaxMetaspaceSize=1024m ^
- -XX:+UseG1GC ^
- -XX:MaxGCPauseMillis=200 ^
- -XX:InitiatingHeapOccupancyPercent=45 ^
- -XX:+UseStringDeduplication ^
- -XX:+HeapDumpOnOutOfMemoryError ^
- -Dspring.task.execution.pool.max-size=10 ^
- -Dspring.task.execution.pool.queue-capacity=50 ^
- -Dspring.servlet.multipart.max-file-size=1GB ^
- -Dspring.servlet.multipart.max-request-size=1GB ^
- -Dserver.tomcat.max-threads=200 ^
- -Dserver.tomcat.accept-count=100 ^
+5️⃣ 사용자 설정 (User Settings)
+GET    /user/settings                 # 전체 설정 조회
+PUT    /user/settings                 # 설정 전체 수정
 
- -Dserver.tomcat.connection-timeout=20000 ^
- -Dspring.servlet.multipart.max-file-size=1GB ^
- -Dspring.servlet.multipart.max-request-size=1GB
+GET    /user/settings/subscription    # 구독 설정 조회
+PUT    /user/settings/subscription    # 구독 설정 변경
 
+GET    /user/settings/theme           # UI 테마 조회
+PUT    /user/settings/theme           # UI 테마 변경
 
-REM  -Dserver.tomcat.max-threads=200 ^ 에서 10으로 조정
-REM   -Dserver.tomcat.connection-timeout=20000 에서 500000으로 조정
+GET    /user/settings/notification    # 알림 설정 조회
+PUT    /user/settings/notification    # 알림 설정 변경
 
 
-REM ===========================================================
-REM APP1 실행 (포트 8080)
-REM ===========================================================
-echo Starting app1 on port 8080...
-start "app1" cmd /c java %JAVA_OPTS% ^
- -verbose:gc ^
- -Xlog:gc*:logs\app1_gc.log:time,uptime,level,tags ^
- -XX:HeapDumpPath=logs\app1_heapdump.hprof ^
- -jar app.jar --server.port=8080 --spring.profiles.active=server1 ^
- > logs\app1.log 2>&1
+⚙️ 향후 theme, notification 등 세부 설정이 추가되어도 확장 용이
+/user는 단수형으로 유지 → 로그인된 사용자 한 명 기준
 
-REM ===========================================================
-REM APP2 실행 (포트 8081)
-REM ===========================================================
-echo Starting app2 on port 8081...
-start "app2" cmd /c java %JAVA_OPTS% ^
- -verbose:gc ^
- -Xlog:gc*:logs\app2_gc.log:time,uptime,level,tags ^
- -XX:HeapDumpPath=logs\app2_heapdump.hprof ^
- -jar app.jar --server.port=8081 --spring.profiles.active=server2 ^
- > logs\app2.log 2>&1
+6️⃣ 인증 (Auth)
+POST   /auth/login
+POST   /auth/logout
+POST   /auth/refresh
+POST   /auth/register
 
-echo ===========================================================
-echo Both instances (app1 & app2) are starting in D:\test...
-echo ThreadPool + Backpressure configuration applied.
-echo Check logs in the "logs" folder for details.
-echo ===========================================================
-pause
 
-🟥 stop.bat (변경 없음)
+🔐 JWT 기반 인증을 가정한 표준 구성
 
-@echo off
-REM ===========================================================
-REM Stop Spring Boot 2.x instances (app1 & app2)
-REM ===========================================================
-echo Stopping app1 and app2...
+🧱 라우터 구성 예시
+# main.py
+app.include_router(model_router, prefix="/models", tags=["Models"])
+app.include_router(prompt_router, prefix="/prompts", tags=["Prompts"])
+app.include_router(conversation_router, prefix="/conversations", tags=["Conversations"])
+app.include_router(share_router, prefix="/share", tags=["Share"])
+app.include_router(collector_router, prefix="/collector", tags=["Collector"])
+app.include_router(user_settings_router, prefix="/user/settings", tags=["User Settings"])
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
-taskkill /FI "WINDOWTITLE eq app1" /T /F
-taskkill /FI "WINDOWTITLE eq app2" /T /F
+✅ 요약
+구분	Prefix	주요 기능	형태
+기본 정보	/models, /prompts	모델 및 샘플 프롬프트 조회	공용
+대화	/conversations	대화 CRUD 및 메시지 관리	복수형
+공유	/share	대화 공유 및 복제	복수형
+수집 자료	/collector	사용자가 등록한 자료 관리	복수형
+사용자 설정	/user/settings	구독 및 기타 개인 설정	단수형
+인증	/auth	로그인/회원가입/JWT 갱신	복수형
 
-echo ===========================================================
-echo Both instances stopped.
-echo ===========================================================
-pause
+이 구성이 확장성·가독성·운영 편의성을 모두 고려한
+“운영환경 기준의 실전형 REST API 구조”입니다.
 
+원하신다면 이걸 기반으로
+📁 routers/ 디렉토리 구조 + 각 router 기본 템플릿 코드 (conversation_router.py 등)까지 바로 만들어드릴 수도 있습니다.
+그걸 원하시나요?
 
-————————————————————————
-발생 원인
 
 
+----------------
 
-🧠 GC loop(Stop-the-world) 발생 메커니즘
-JVM은 heap이 꽉 차면 Full GC를 실행합니다. 그런데 Full GC로도 메모리가 해제되지 않으면, 다시 GC → 메모리 부족 → GC… 무한 반복이 일어나죠. 이게 GC loop (GC thrashing) 상태입니다. CPU는 대부분 GC에 쓰이고, 애플리케이션 로직은 멈춘 듯 보입니다.
+🧩 최종 FastAPI API 설계안 (v1)
+1️⃣ 기본 정보 (공용)
+GET /models                     # 지원하는 LLM 모델 목록 조회
+GET /prompts                    # 샘플 프롬프트 목록 조회
 
 
+공용 리소스 (로그인 불필요 가능)
+ex) 모델 선택, 프롬프트 추천 등 기본 데이터 제공
 
-🚨 JVM 설정을 안 했을 때의 위험
-* JVM은 OS의 여유 메모리를 “가능한 한 다 쓰려는 경향”이 있습니다.
-* 캐싱이 켜진 상태에서는 GC가 주기적으로 full cycle 수행 → CPU 100% loop 발생
-* Heap이 동적으로 확장되면서 GC 스레드와 애플리케이션 스레드가 경쟁 → 응답 멈춤 현상
-따라서 캐싱만 끄면 불완전하고, JVM 힙 크기를 명시적으로 제한해야 안전하게 동작합니다.
+2️⃣ 대화 (Conversations)
+GET    /conversations                 # 사용자의 전체 대화 목록 조회
+POST   /conversations                 # 새 대화 생성 (첫 메시지 포함 가능)
+GET    /conversations/{id}            # 특정 대화 상세 조회
+PUT    /conversations/{id}            # 대화 제목 또는 속성 수정
+DELETE /conversations/{id}            # 대화 삭제
 
+POST   /conversations/{id}/messages   # 메시지 추가 및 LLM 응답 요청
+GET    /conversations/{id}/messages   # 대화 메시지 전체 히스토리 조회
 
+GET    /conversations/{id}/stream     # LLM 응답을 SSE로 실시간 스트리밍
+POST   /conversations/{id}/feedback   # 대화 또는 메시지 피드백 제출
 
-➡ JVM Heap이 4GB보다 작다면 (예: -Xmx2G)
-* Eden 영역이 금세 꽉 찼다가 Young GC 발생
-* Survivor로 복사 불가 → Old 영역으로 Promotion
-* Old 영역도 곧 포화 → Full GC 발생
-* Full GC 후에도 여전히 데이터가 존재 → GC loop (즉, GC가 계속 돌며 처리 멈춤)
-즉, 캐시가 없더라도 **“대용량 데이터를 한 번에 들고 있는 구조”**라면 GC loop가 발생합니다.
 
+💬 “대화”와 “메시지”의 계층 구조 명확
+💡 SSE 응답은 /stream 하위에서 구분
+💡 Feedback은 conversation 단위로 관리 가능
 
+3️⃣ 공유 (Shares)
+GET    /shares                        # 내가 생성한 공유 목록 조회
+POST   /shares                        # 새 공유 생성 (body: conversation_id)
+GET    /shares/{id}                   # 공유된 대화 조회 (읽기 전용)
+POST   /shares/{id}/clone             # 공유된 대화로부터 새 대화 생성
+DELETE /shares/{id}                   # 공유 삭제 또는 비활성화
 
 
-——————
+📤 공유 리소스는 /shares로 복수형 관리
+💡 “복제(clone)”는 명시적 액션으로 표현해 명확성 확보
 
-원하시면 제가 Heap 20GB 기준 동시 요청별 메모리 시뮬레이션을 계산해서 몇 건까지 안전하게 처리 가능한지도 보여드릴 수 있어요.
-그걸 해드릴까요?
+4️⃣ 샘플 (Samples)
+GET    /samples                       # 샘플 대화 목록 조회
+POST   /samples                       # 새로운 샘플 등록 (body: conversation_id)
+GET    /samples/{id}                  # 샘플 대화 상세 조회
+POST   /samples/{id}/clone            # 샘플 대화로부터 새 대화 생성
 
 
-좋아요. 지금 조건을 정리하고, Heap 20GB 기준 단일 요청 4GB 처리 시 동시 요청별 메모리 상황을 계산해보겠습니다.
+🧠 /shares와 동일한 구조 유지 — 일관성 극대화
+💡 관리자가 제공하는 샘플 프롬프트나 대화 예시용
 
-1️⃣ 가정
-* 서버 RAM: 64GB (다른 서비스 + OS 24GB 가정 → 사용 가능 RAM 40GB)
-* JVM Heap: -Xms12g -Xmx20g
-* 단일 요청 데이터: 4GB (객체 + JSON 직렬화 버퍼 포함)
-* G1GC: Concurrent GC 진행
-* 안전 마진: Heap 최대 20GB 사용 중 약 20~25%는 GC overhead + JVM internal 사용
-즉, 실질적으로 단일 요청이 4~5GB Heap을 사용한다고 가정
+5️⃣ 사용자 수집 자료 (Collector)
+GET    /collector/items               # 사용자가 수집한 자료 목록 조회
+POST   /collector/items               # 자료 등록
+DELETE /collector/items/{id}          # 자료 삭제
 
-2️⃣ 요청별 Heap 점유 예상
-동시 요청 수	요청당 메모리	총 Heap 점유	주석
-1	4~5GB	4~5GB	Heap 20GB 여유 충분, 안전
-2	4~5GB	8~10GB	Heap 20GB 여유 충분, GC 부담 있음
-3	4~5GB	12~15GB	Heap 20GB 중 ~75% 점유 → Full GC 발생 가능
-4	4~5GB	16~20GB	Heap 거의 최대 → Full GC 반복 가능, 성능 급격히 저하
-5	4~5GB	20~25GB	Heap 초과 → OOM 발생 가능
-결론: 동시 2건 정도까지 안전, 3건 이상 위험
 
-3️⃣ Full GC 발생 시점
-* G1GC: InitiatingHeapOccupancyPercent=40%
-* Heap 20GB → 40% = 8GB 사용 시 Concurrent GC 시작
-* 동시 2건 → 총 8~10GB 사용 → GC 시작 → 처리 가능
-* 동시 3건 → 총 12~15GB → GC가 계속 수행되면서 Full GC 발생 → 응답 지연
+📚 /collector는 기능 그룹, 실제 리소스는 /items
+💡 나중에 /collector/tags, /collector/search 등 확장 가능
 
-4️⃣ 안전 전략
-1. Tomcat maxThreads 제한 → 동시 요청 2~3건 유지
+6️⃣ 사용자 설정 (User Settings)
+GET    /user/settings                 # 사용자 설정 전체 조회
+PUT    /user/settings                 # 사용자 설정 전체 수정
 
--Dserver.tomcat.max-threads=3
--Dserver.tomcat.accept-count=10
-1. Task Executor 제한 → @Async, Scheduler 동시 실행 제한
+GET    /user/settings/subscription    # 구독 설정 조회
+PUT    /user/settings/subscription    # 구독 설정 변경
 
--Dspring.task.execution.pool.max-size=2
--Dspring.task.execution.pool.queue-capacity=5
-1. Heap 점유 모니터링
-* GC 로그를 통해 요청 처리 중 OldGen 점유율 확인
-* 필요 시 InitiatingHeapOccupancyPercent 낮춰서 GC 조기 시작
 
-5️⃣ 요약
-항목	권장
-JVM Heap	-Xms12g -Xmx20g
-단일 요청	4GB
-동시 요청	2건 안전, 3건 이상 GC 위험
-Tomcat maxThreads	2~3
-Task Executor	2
-GC 튜닝	G1GC, InitiatingHeapOccupancyPercent=40~45, MaxGCPauseMillis=250
+⚙️ /user는 단수형 — 현재 로그인한 사용자 기준
+💡 /user/settings 하위로 세부 설정 확장 용이
+ex) /user/settings/notifications, /user/settings/theme
 
+7️⃣ 인증 (Auth)
+POST   /auth/login                    # 로그인
+POST   /auth/logout                   # 로그아웃
+POST   /auth/refresh                  # 토큰 갱신
+POST   /auth/register                 # 회원가입
 
 
-using System;
-using System.Collections.Generic;
+🔐 JWT 기반 인증을 가정
+💡 /user와는 별도의 책임 영역
 
-public class DateTimeSplitter
-{
-    public static List<(DateTime Start, DateTime End)> SplitByDays(DateTime start, DateTime end, int intervalDays)
-    {
-        var result = new List<(DateTime Start, DateTime End)>();
+🧱 FastAPI 라우터 구성 예시
+# main.py
+app.include_router(model_router, prefix="/models", tags=["Models"])
+app.include_router(prompt_router, prefix="/prompts", tags=["Prompts"])
+app.include_router(conversation_router, prefix="/conversations", tags=["Conversations"])
+app.include_router(share_router, prefix="/shares", tags=["Shares"])
+app.include_router(sample_router, prefix="/samples", tags=["Samples"])
+app.include_router(collector_router, prefix="/collector", tags=["Collector"])
+app.include_router(user_settings_router, prefix="/user/settings", tags=["User Settings"])
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
-        var currentStart = start;
+✅ 요약 테이블
+구분	Prefix	주요 기능	특징
+기본 정보	/models, /prompts	모델/프롬프트 목록	공용
+대화	/conversations	대화 CRUD + 메시지/SSE	핵심 서비스
+공유	/shares	대화 공유 및 복제	일관된 구조
+샘플	/samples	샘플 대화 관리	/shares와 동일 패턴
+수집 자료	/collector/items	사용자 저장 자료	확장성 높음
+사용자 설정	/user/settings	구독/테마/알림 등	단수형 user
+인증	/auth	로그인/회원가입	독립 영역
 
-        while (currentStart <= end)
-        {
-            // 구간 종료일 = 시작일 + (intervalDays - 1)
-            var currentEnd = currentStart.AddDays(intervalDays - 1);
+이 구조는 ChatGPT류 서비스에서
 
-            // 종료일이 전체 end보다 크면 end로 조정
-            if (currentEnd > end)
-                currentEnd = end;
+운영 시 API 관리가 쉽고
 
-            result.Add((currentStart, currentEnd));
+버전 확장(v2, v3 등)도 단순하며
 
-            // 다음 구간 시작일
-            currentStart = currentEnd.AddDays(1);
-        }
+Swagger/OpenAPI 문서 구조도 깔끔하게 유지됩니다.
 
-        return result;
-    }
-}
-핵심: Heap 제한 때문에 동시 요청 수 제어가 필수입니다. IIS Load Balancer가 여러 Jar에 요청 분산 → 전체 동시 요청 관리 가능
-
-
+원하신다면 다음 단계로
+📁 /routers 폴더 구조 + 각 라우터 기본 코드 템플릿 (예: conversation_router.py, collector_router.py)
+까지 자동 생성 형태로 구성해드릴까요?
+→ 이 설계를 실제 FastAPI 프로젝트 스켈레톤 코드로 옮길 수 있습니다.
