@@ -168,6 +168,12 @@ GET    /user/settings/subscription    # 구독 설정 조회
 PUT    /user/settings/subscription    # 구독 설정 변경
 
 
+GET  /users/{user_id}/settings                 # 특정 사용자의 설정 조회
+PUT  /users/{user_id}/settings                 # 특정 사용자의 설정 수정
+GET  /users/{user_id}/settings/subscription    # 특정 사용자의 구독 설정 조회
+PUT  /users/{user_id}/settings/subscription    # 특정 사용자의 구독 설정 수정
+
+
 ⚙️ /user는 단수형 — 현재 로그인한 사용자 기준
 💡 /user/settings 하위로 세부 설정 확장 용이
 ex) /user/settings/notifications, /user/settings/theme
