@@ -168,10 +168,16 @@ GET    /user/settings/subscription    # 구독 설정 조회
 PUT    /user/settings/subscription    # 구독 설정 변경
 
 
+관리자
 GET  /users/{user_id}/settings                 # 특정 사용자의 설정 조회
 PUT  /users/{user_id}/settings                 # 특정 사용자의 설정 수정
 GET  /users/{user_id}/settings/subscription    # 특정 사용자의 구독 설정 조회
 PUT  /users/{user_id}/settings/subscription    # 특정 사용자의 구독 설정 수정
+
+
+GET    /users/{user_id}/conversations          # 특정 사용자의 대화 목록 조회
+GET    /users/{user_id}/conversations/{id}     # 특정 사용자의 특정 대화 상세 조회
+DELETE /users/{user_id}/conversations/{id}     # 특정 사용자의 대화 삭제 (관리자 권한)
 
 
 ⚙️ /user는 단수형 — 현재 로그인한 사용자 기준
