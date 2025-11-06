@@ -1,3 +1,39 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Program
+{
+    static void Main()
+    {
+        var items = new List<string>
+        {
+            "apple orange banana",
+            "apple banana",
+            "orange mango",
+            "apple orange",
+            "grape apple juice"
+        };
+
+        string input = "apple,orange"; // 검색 입력값
+        var keywords = input
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        // 부분 일치하는 모든 키워드를 포함하는 항목만 필터링
+        var filtered = items
+            .Where(item => keywords.All(k => item.Contains(k, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        // 결과 출력
+        foreach (var result in filtered)
+        {
+            Console.WriteLine(result);
+        }
+    }
+}
+
+
+
 🧩 최종 FastAPI API 설계안
 1️⃣ 기본 정보 (공용)
 GET /models                     # 지원하는 LLM 모델 목록 조회
