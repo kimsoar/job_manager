@@ -1,3 +1,11 @@
+String regex = "^/api/v1/app/mbeat(/.*)?$";
+
+boolean matched = Pattern.compile(regex).matcher(text).matches();
+
+System.out.println(matched ? "경로 패턴 일치" : "일치하지 않음");
+
+
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
