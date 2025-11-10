@@ -1,3 +1,54 @@
+using System;
+using System.Net.Http;
+using Microsoft.Identity.Client;         // Microsoft.Identity.Client v4+
+using Microsoft.Identity.Client.Platforms.Shared; // 필요시
+
+// IMsalHttpClientFactory 구현
+public class NoProxyHttpClientFactory : IMsalHttpClientFactory
+{
+    public HttpClient GetHttpClient()
+    {
+        var handler = new HttpClientHandler
+        {
+            UseProxy = false,  // 프록시 사용 금지
+            Proxy = null
+        };
+
+#if DEBUG
+        // 테스트용: 인증서 검증을 완화 (절대 운영에 사용 금지)
+        handler.ServerCertificateCustomValidationCallback = (req, cert, chain, errors) => true;
+#endif
+
+        return new HttpClient(handler, disposeHandler: true);
+    }
+}
+
+// MSAL 앱 생성 및 토큰 획득 (Interactive 예시)
+var clientId = "your-client-id";
+var authority = "https://login.microsoftonline.com/your-tenant-id"; // 또는 "common"
+var redirectUri = "http://localhost"; // 앱에 맞게 변경
+
+var httpFactory = new NoProxyHttpClientFactory();
+
+var app = PublicClientApplicationBuilder.Create(clientId)
+    .WithAuthority(authority)
+    .WithRedirectUri(redirectUri)
+    .WithHttpClientFactory(httpFactory)   // 여기에 커스텀 HttpClient 공급
+    .Build();
+
+// 요청할 scope 목록 — 실제 사용하려는 리소스/권한으로 교체하세요.
+string[] scopes = new[] { "User.Read" }; // 예: Microsoft Graph 권한 예시
+
+var result = await app.AcquireTokenInteractive(scopes)
+    .ExecuteAsync();
+
+Console.WriteLine("Access token: " + result.AccessToken);
+
+
+
+
+
+
 String regex = "^/api/v1/app/mbeat(/.*)?$";
 
 boolean matched = Pattern.compile(regex).matcher(text).matches();
