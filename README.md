@@ -1,4 +1,33 @@
 
+using System.Net.Http;
+using Microsoft.IdentityModel.Clients.ActiveDirectory;
+
+// ADAL의 IHttpClientFactory 구현
+public class NoProxyHttpClientFactory : Microsoft.IdentityModel.Clients.ActiveDirectory.IHttpClientFactory
+{
+    public HttpClient GetHttpClient()
+    {
+        var handler = new HttpClientHandler
+        {
+            UseProxy = false,   // 프록시 사용 안 함
+            Proxy = null
+        };
+
+#if DEBUG
+        // 테스트 전용: 인증서 검사 완화 (운영금지)
+        handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+#endif
+
+        return new HttpClient(handler, disposeHandler: true);
+    }
+}
+
+
+
+
+
+
+
 
 
 
