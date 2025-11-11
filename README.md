@@ -1,3 +1,33 @@
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4 --log-config log_config.yaml
+
+
+
+version: 1
+disable_existing_loggers: False
+formatters:
+  default:
+    format: "%(levelprefix)s %(asctime)s %(message)s"
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: default
+  file:
+    class: concurrent_log_handler.ConcurrentRotatingFileHandler
+    filename: "app.log"
+    maxBytes: 10485760
+    backupCount: 5
+    formatter: default
+loggers:
+  uvicorn:
+    handlers: [console, file]
+    level: INFO
+root:
+  level: INFO
+  handlers: [console, file]
+
+
+
+
 pip install concurrent-log-handler
 
 
