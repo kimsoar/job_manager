@@ -1,5 +1,28 @@
+pip install concurrent-log-handler
 
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4 --log-level info
+
+from concurrent_log_handler import ConcurrentRotatingFileHandler
+import logging
+
+logger = logging.getLogger("my_logger")
+logger.setLevel(logging.INFO)
+
+handler = ConcurrentRotatingFileHandler(
+    "app.log", maxBytes=10*1024*1024, backupCount=5
+)
+formatter = logging.Formatter(
+    "%(asctime)s - %(levelname)s - %(message)s"
+)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+logger.info("FastAPI 시작")
+
+
+
+
+python 
+-m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4 --log-level info
 
 
 using System.Net.Http;
