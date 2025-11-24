@@ -1,3 +1,82 @@
+아래는 PostgreSQL에서 시간별 / 일별 / 주별 / 월별로 모두 취합하는 표준 패턴입니다.
+timestamp 컬럼을 기준으로 date_trunc를 사용하면 됩니다.
+
+✅ 1) 시간별(hourly) 집계
+SELECT
+    date_trunc('hour', timestamp) AS hour,
+    COUNT(*) AS row_count
+FROM your_table
+GROUP BY hour
+ORDER BY hour;
+
+✅ 2) 일별(daily) 집계
+SELECT
+    date_trunc('day', timestamp) AS day,
+    COUNT(*) AS row_count
+FROM your_table
+GROUP BY day
+ORDER BY day;
+
+
+또는 날짜만 보고 싶으면:
+
+SELECT
+    DATE(timestamp) AS day,
+    COUNT(*) AS row_count
+FROM your_table
+GROUP BY day
+ORDER BY day;
+
+✅ 3) 주별(weekly) 집계
+
+PostgreSQL 기준, 주 시작은 월요일입니다.
+
+SELECT
+    date_trunc('week', timestamp) AS week,
+    COUNT(*) AS row_count
+FROM your_table
+GROUP BY week
+ORDER BY week;
+
+✅ 4) 월별(monthly) 집계
+SELECT
+    date_trunc('month', timestamp) AS month,
+    COUNT(*) AS row_count
+FROM your_table
+GROUP BY month
+ORDER BY month;
+
+🔥 옵션: user_id 기준으로 필터링도 가능
+WHERE user_id = 'tester1'
+
+
+모든 쿼리에 추가 가능:
+
+SELECT
+    date_trunc('day', timestamp) AS day,
+    COUNT(*) AS row_count
+FROM your_table
+WHERE user_id = 'tester1'
+GROUP BY day
+ORDER BY day;
+
+🔥 옵션: 모든 집계를 한 번에 보고 싶으면
+SELECT 'hourly' AS type, date_trunc('hour', timestamp) AS ts, COUNT(*) FROM your_table GROUP BY ts
+UNION ALL
+SELECT 'daily', date_trunc('day', timestamp), COUNT(*) FROM your_table GROUP BY 1,2
+UNION ALL
+SELECT 'weekly', date_trunc('week', timestamp), COUNT(*) FROM your_table GROUP BY 1,2
+UNION ALL
+SELECT 'monthly', date_trunc('month', timestamp), COUNT(*) FROM your_table GROUP BY 1,2
+ORDER BY ts;
+
+
+필요하면 연도별, 요일별, 시간대별 히트맵, user_id별 동시 집계, 그래프용 SQL도 만들어줄게!
+
+==========================================================================================
+
+
+
 src/
  ├─ api/                     # Axios 인스턴스, 인터셉터, 공통 API 모듈
  │   ├─ http.ts              # Axios 인스턴스 생성
