@@ -75,6 +75,703 @@ ORDER BY ts;
 
 ==========================================================================================
 
+아래는 FastAPI v1/v2 버전 구조를 실제 개발용 수준으로 설계한
+📌 폴더 구조 + 라우터 + 서비스 + 모델 + 인증/세션 관리 전체 샘플 코드입니다.
+Vue3 + FastAPI 백엔드를 동시에 운영하는 구조에 최적화했습니다.
+
+📁 1. 디렉터리 구조 (추천 구조)
+app/
+ ├─ main.py
+ ├─ core/
+ │   ├─ config.py
+ │   ├─ security.py
+ │   └─ session.py
+ ├─ api/
+ │   ├─ deps/
+ │   │   └─ auth.py
+ │   ├─ v1/
+ │   │   ├─ router.py
+ │   │   ├─ users.py
+ │   │   └─ items.py
+ │   ├─ v2/
+ │   │   ├─ router.py
+ │   │   └─ users.py
+ ├─ models/
+ │   └─ user.py
+ ├─ schemas/
+ │   └─ user.py
+ └─ services/
+     ├─ user_service.py
+     └─ item_service.py
+
+🧩 2. 핵심 파일 상세 코드
+▶ main.py
+
+FastAPI 앱 생성 + v1/v2 라우터 등록.
+
+from fastapi import FastAPI
+from app.api.v1.router import api_router as v1_router
+from app.api.v2.router import api_router as v2_router
+
+app = FastAPI(title="My API", version="1.0.0")
+
+app.include_router(v1_router)
+app.include_router(v2_router)
+
+▶ core/config.py (환경 설정 파일)
+from pydantic import BaseSettings
+
+class Settings(BaseSettings):
+    JWT_SECRET: str = "secret"
+    JWT_ALGO: str = "HS256"
+
+settings = Settings()
+
+▶ core/security.py (JWT 관련)
+import jwt
+from datetime import datetime, timedelta
+from app.core.config import settings
+
+def create_access_token(data: dict, expires_minutes=60):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
+    to_encode["exp"] = expire
+    return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGO)
+
+def decode_token(token: str):
+    return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGO])
+
+▶ api/deps/auth.py (공통 인증 Dependency)
+
+Router 전체에 적용할 인증 로직.
+
+from fastapi import Depends, HTTPException, Request
+from app.core.security import decode_token
+
+def get_current_user(request: Request):
+    token = request.headers.get("Authorization")
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    token = token.replace("Bearer ", "")
+
+    try:
+        user = decode_token(token)
+    except:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    request.state.user = user
+    return user
+
+▶ models/user.py (DB Model or ORM Model 자리)
+
+여기선 간단한 예시로 dict 구조만.
+
+class User:
+    def __init__(self, user_id: str, role: str):
+        self.user_id = user_id
+        self.role = role
+
+▶ schemas/user.py (Pydantic 입력/출력 모델)
+from pydantic import BaseModel
+
+class UserSchema(BaseModel):
+    user_id: str
+    role: str
+
+▶ services/user_service.py
+from app.models.user import User
+
+class UserService:
+    def get_user(self, user_id: str):
+        return User(user_id=user_id, role="admin")
+
+    def list_users(self):
+        return [
+            User(user_id="user1", role="user"),
+            User(user_id="admin", role="admin"),
+        ]
+
+user_service = UserService()
+
+▶ api/v1/users.py (v1 Users API)
+from fastapi import APIRouter, Request
+from app.services.user_service import user_service
+
+router = APIRouter()
+
+@router.get("/me")
+def get_me(request: Request):
+    return request.state.user
+
+@router.get("/")
+def list_users():
+    return [vars(u) for u in user_service.list_users()]
+
+▶ api/v1/items.py
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/")
+def list_items():
+    return [{"id": "item1"}, {"id": "item2"}]
+
+▶ api/v1/router.py (v1 라우터 통합)
+
+여기서 인증 dependency를 전체 v1에 적용 👇
+
+from fastapi import APIRouter, Depends
+from app.api.deps.auth import get_current_user
+from app.api.v1 import users, items
+
+api_router = APIRouter(
+    prefix="/v1",
+    dependencies=[Depends(get_current_user)]  # ⭐ v1 전체 인증
+)
+
+api_router.include_router(users.router, prefix="/users")
+api_router.include_router(items.router, prefix="/items")
+
+▶ api/v2/router.py (v2 라우터 - 인증 옵션)
+
+v2는 아직 인증 없는 API로 구성 가능.
+
+from fastapi import APIRouter
+from app.api.v2 import users
+
+api_router = APIRouter(prefix="/v2")
+api_router.include_router(users.router, prefix="/users")
+
+▶ api/v2/users.py
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/")
+def list_users_v2():
+    return {"message": "v2 improved users API"}
+
+📌 전체 흐름 요약
+계층	역할
+main.py	FastAPI 앱 생성, v1/v2 라우터 등록
+api/v1	모든 API + 인증 필요
+api/v2	신규 API 버전, 인증 옵션
+deps/auth.py	JWT 인증, request.state.user 저장
+services/	비즈니스 로직
+models/	DB/ORM 모델
+schemas/	Pydantic 모델
+core/	환경설정, JWT, DB 세션 등
+👍 이 구조의 장점
+✔ Vue3 + FastAPI 운영에 최적화
+
+Axios 인증 인스턴스와 자연스럽게 매칭.
+
+✔ v1/v2 버전 분리 깔끔
+
+v1: 안정 API + 인증 필수
+
+v2: 개선 API 점진 전환
+
+✔ 인증·세션 로직을 1곳에서 처리
+
+dependencies=[Depends(get_current_user)]
+
+✔ 서비스·모델·스키마 완전 분리
+
+TypeScript 구조 설계와 유사해서 관리 쉬움.
+
+필요하면 아래도 만들어줄게:
+
+📌 프론트(Vue3 Axios)와 연결되는 JWT 인증 템플릿
+
+📌 MongoDB 또는 PostgreSQL ORM 버전 구조
+
+📌 Redis 기반 Session Manager 추가 구조
+
+📌 테스트 코드(pytest) 기본 구조
+
+원하는 방향 있을까?
+
+request: Request 를 받으면서 query 파라미터도 함께 받을 수 있습니다.
+FastAPI에서는 Request와 Query/Path 파라미터를 함께 혼용할 수 있어요.
+
+✅ 예시 1: 기본 Query 파라미터 추가
+@router.get("/me")
+def get_me(request: Request, detail: bool = False):
+    user = request.state.user
+    if detail:
+        user["detail"] = "more detail info"
+    return user
+
+
+사용 예:
+
+GET /me?detail=true
+
+✅ 예시 2: 여러 Query 파라미터 추가
+@router.get("/me")
+def get_me(
+    request: Request,
+    page: int = 1,
+    size: int = 20,
+    include_role: bool = False,
+):
+    data = {
+        "user": request.state.user,
+        "page": page,
+        "size": size
+    }
+
+    if include_role:
+        data["role"] = request.state.user.get("role")
+
+    return data
+
+✅ 예시 3: Query 파라미터를 Pydantic 모델로 받기
+
+QueryModel 하나로 묶어 깔끔하게 관리할 수 있음.
+
+from pydantic import BaseModel
+from fastapi import Depends, Query
+
+class UserQuery(BaseModel):
+    include_role: bool = False
+    page: int = 1
+    size: int = 10
+
+def get_query(
+    include_role: bool = Query(False),
+    page: int = Query(1),
+    size: int = Query(10),
+):
+    return UserQuery(include_role=include_role, page=page, size=size)
+
+
+라우터:
+
+@router.get("/me")
+def get_me(
+    request: Request,
+    query: UserQuery = Depends(get_query)
+):
+    result = {
+        "user": request.state.user,
+        "page": query.page,
+        "size": query.size,
+    }
+    
+    if query.include_role:
+        result["role"] = request.state.user.get("role")
+
+    return result
+
+📌 정리
+✔ request: Request
+
+→ 항상 첫 번째 파라미터로 받으면 됨
+
+✔ Query 파라미터도 함께 사용 가능
+
+→ def my_api(request: Request, q: str = None, page: int = 1)
+
+✔ 깔끔한 구조를 원하면
+
+→ Pydantic Query Model + Depends 추천
+
+원하면
+📌 “QueryModel을 자동으로 Swagger에 정리되는 형태로 사용하는 베스트 프랙티스”
+도 만들어줄게.
+
+post 예시를 들어줘
+아래에 POST에서 Request + Body + Query를 모두 함께 사용하는 예시를 단계별로 정리해줄게.
+
+FastAPI는 Request, Body, Query를 서로 섞어서 받을 수 있고, 특히
+실무에서는 아래 형태가 많이 쓰임:
+
+Request → 인증된 사용자 정보 (request.state.user)
+
+Body → 실제 데이터 입력(Pydantic 모델)
+
+Query → 옵션 필터, 모드, 페이지 등
+
+✅ 1) 가장 기본적인 POST 예시
+
+Request와 Body만 조합
+
+from fastapi import APIRouter, Request
+from pydantic import BaseModel
+
+router = APIRouter()
+
+class ItemCreate(BaseModel):
+    name: str
+    price: float
+
+@router.post("/items")
+def create_item(request: Request, body: ItemCreate):
+    user = request.state.user   # 인증된 사용자 정보
+    
+    return {
+        "created_by": user,
+        "item": body
+    }
+
+✅ 2) POST + Query + Body + Request 모두 조합
+
+가장 많이 쓰는 패턴 (실무형)
+
+from fastapi import APIRouter, Request, Query
+from pydantic import BaseModel
+
+router = APIRouter()
+
+class ItemCreate(BaseModel):
+    name: str
+    price: float
+
+@router.post("/items")
+def create_item(
+    request: Request,
+    data: ItemCreate,
+    notify: bool = Query(default=False),   # /items?notify=true
+):
+    user = request.state.user
+
+    return {
+        "user": user,
+        "query_param_notify": notify,
+        "item_body": data.dict(),
+    }
+
+
+사용:
+
+POST /items?notify=true
+{
+  "name": "Apple",
+  "price": 1000
+}
+
+✅ 3) Query 값을 별도 Pydantic 모델로 받는 실무형 패턴
+
+복잡한 Query 파라미터가 많을 때 추천 👍
+
+Query Model 정의
+from pydantic import BaseModel
+from fastapi import Query
+
+class ItemQuery(BaseModel):
+    category: str = None
+    discount: bool = False
+
+def get_item_query(
+    category: str = Query(None),
+    discount: bool = Query(False),
+):
+    return ItemQuery(category=category, discount=discount)
+
+POST 라우터
+@router.post("/items")
+def create_item(
+    request: Request,
+    body: ItemCreate,
+    q: ItemQuery = Depends(get_item_query)
+):
+    user = request.state.user
+    
+    return {
+        "user": user,
+        "body": body,
+        "query": q,
+    }
+
+
+사용 예:
+
+POST /items?category=fruit&discount=true
+{
+  "name": "Banana",
+  "price": 2500
+}
+
+✅ 4) POST + Path + Query + Body + Request 모두 조합한 풀옵션 예시
+@router.post("/users/{user_id}/items")
+def create_user_item(
+    user_id: str,
+    request: Request,
+    data: ItemCreate,
+    priority: int = Query(1),
+):
+    user = request.state.user
+
+    return {
+        "login_user": user,
+        "target_user_id": user_id,
+        "priority": priority,
+        "item_data": data.dict()
+    }
+
+📌 핵심 정리
+✔ POST에서도 Request + Query + Body 조합 100% 가능
+✔ Pydantic Body 모델 + Query 모델 분리 추천
+
+→ Swagger 문서도 깔끔
+→ 서비스·유즈케이스 레이어로 넘기기 쉬움
+
+✔ 실무에서는 아래 패턴 가장 많이 씀
+def api(request: Request, body: BodyModel, q: QueryModel = Depends(...))
+
+
+
+
+dependencies=[Depends(get_current_user)] 를 APIRouter 전체에 걸었을 때,
+일부 엔드포인트만 인증 없이(open API) 열어두고 싶다면 예외 처리 방식을 써야 해.
+
+FastAPI에서 이 문제를 해결하는 방법은 3가지가 있고,
+그중에서 가장 실무적인 베스트 프랙티스도 알려줄게.
+
+✅ 방법 1 — “두 개의 Router로 분리” (가장 깔끔하고 추천)
+
+인증이 필요한 API와
+인증이 필요 없는 API를 별도 Router로 나누는 방식.
+
+📁 구조 예시
+api/v1/
+ ├─ router.py
+ ├─ items.py        # 인증 필요
+ └─ auth.py         # 인증 불필요 (token 발급)
+
+▶ auth.py — 인증이 필요 없는 API
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.post("/token")
+def issue_token(login: LoginSchema):
+    return {"access_token": "..."}
+
+▶ router.py — 인증이 필요한 API만 묶기
+from fastapi import APIRouter, Depends
+from app.api.deps.auth import get_current_user
+from app.api.v1 import items, auth
+
+api_router = APIRouter(prefix="/v1")
+
+# 인증 없이 접근 가능한 auth API 먼저 등록
+api_router.include_router(auth.router, prefix="/auth")
+
+# 인증이 필요한 부분만 dependencies 적용
+protected_router = APIRouter(
+    prefix="",
+    dependencies=[Depends(get_current_user)]
+)
+
+protected_router.include_router(items.router, prefix="/items")
+
+# protected router 등록
+api_router.include_router(protected_router)
+
+✔ 장점
+
+인증 API와 일반 API가 확실하게 분리됨
+
+개발하면서 인증 여부가 헷갈리지 않음
+
+유지보수가 가장 쉽다
+(대규모 프로젝트에서도 가장 사용되는 방식)
+
+✅ 방법 2 — 엔드포인트 단위로 dependency override (추천 ❌)
+
+FastAPI는 개별 API에서 dependency를 제거하는 override 구조를 지원하지 않음.
+즉, dependencies=[Depends(...)] 가 Router에 지정되면 API마다 off 할 수 없음.
+
+그래서 Router 분리가 올바른 방식임.
+
+✅ 방법 3 — get_current_user에서 “optional 모드” 처리 (가능하지만 비추천)
+
+아래처럼 token이 없으면 None, 있으면 인증 처리하도록 만들 수 있음.
+
+def get_current_user_optional(request: Request):
+    token = request.headers.get("Authorization")
+    if not token:
+        return None
+    return decode_token(token)
+
+
+문제는
+실제 인증이 필요한 API에도 user가 없을 수 있음
+→ 매번 코드에서 체크해야 함
+→ 오류 발생 가능
+
+그래서 비추천.
+
+
+
+
+⭐ 결론 (실전에서 가장 많이 쓰는 방식)
+⭐ Router를 두 개로 분리하라.
+
+/v1/auth/* → 인증 불필요
+
+/v1/* → 인증 필요 → dependencies=[Depends(get_current_user)] 적용
+
+📌 예시 코드: 완성본
+1) v1/auth.py
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.post("/token")
+def issue_token(body: TokenRequest):
+    # 로그인 검증 후 토큰 발급
+    return {"access_token": "...", "token_type": "bearer"}
+
+2) v1/items.py (인증 필요)
+from fastapi import APIRouter, Request
+
+router = APIRouter()
+
+@router.get("/")
+def get_items(request: Request):
+    return {"user": request.state.user, "items": []}
+
+3) v1/router.py (최종 라우팅)
+from fastapi import APIRouter, Depends
+from app.api.deps.auth import get_current_user
+from app.api.v1 import auth, items
+
+api_router = APIRouter(prefix="/v1")
+
+# 인증 필요 없는 영역
+api_router.include_router(auth.router, prefix="/auth")
+
+# 인증 필요 API들
+protected_router = APIRouter(
+    dependencies=[Depends(get_current_user)]
+)
+
+protected_router.include_router(items.router, prefix="/items")
+
+api_router.include_router(protected_router)
+
+
+필요하면
+✔ v1/v2 버전별 인증 라우터 자동 분리
+✔ 관리자 전용 Router
+✔ Optional 인증 Router
+등도 만들어줄게!
+
+📁 1. 전체 구조 예시 (v1/v2 + 인증/비인증)
+app/
+ ├─ main.py
+ ├─ core/
+ │   ├─ config.py
+ │   └─ security.py
+ ├─ api/
+ │   ├─ deps/
+ │   │   └─ auth.py
+ │   ├─ v1/
+ │   │   ├─ router.py
+ │   │   ├─ auth.py      # /auth/token → 인증 X
+ │   │   ├─ items.py     # 인증 필요
+ │   │   └─ users.py     # 인증 필요
+ │   ├─ v2/
+ │   │   ├─ router.py
+ │   │   └─ users.py     # v2 개선 API
+ ├─ services/
+ │   ├─ user_service.py
+ │   └─ item_service.py
+ ├─ schemas/
+ │   ├─ user.py
+ │   └─ item.py
+ └─ models/
+     ├─ user.py
+     └─ item.py
+
+🧩 2. v1 Router 구조
+# app/api/v1/router.py
+from fastapi import APIRouter, Depends
+from app.api.v1 import auth, items, users
+from app.api.deps.auth import get_current_user
+
+api_router = APIRouter(prefix="/v1")
+
+# 인증 X → 로그인/토큰 발급 등
+api_router.include_router(auth.router, prefix="/auth")
+
+# 인증 필요 → items, users
+protected_router = APIRouter(dependencies=[Depends(get_current_user)])
+protected_router.include_router(items.router, prefix="/items")
+protected_router.include_router(users.router, prefix="/users")
+
+api_router.include_router(protected_router)
+
+🧩 3. auth.py (인증 없이 접근 가능)
+# app/api/v1/auth.py
+from fastapi import APIRouter
+from pydantic import BaseModel
+
+router = APIRouter()
+
+class TokenRequest(BaseModel):
+    username: str
+    password: str
+
+@router.post("/token")
+def issue_token(body: TokenRequest):
+    # 로그인 검증 후 토큰 발급
+    return {"access_token": "fake-token", "token_type": "bearer"}
+
+🧩 4. items.py (인증 필요)
+# app/api/v1/items.py
+from fastapi import APIRouter, Request
+
+router = APIRouter()
+
+@router.get("/")
+def list_items(request: Request):
+    return {
+        "user": request.state.user,
+        "items": ["item1", "item2"]
+    }
+
+🧩 5. get_current_user (Request state에 user 저장)
+# app/api/deps/auth.py
+from fastapi import Request, HTTPException
+
+def get_current_user(request: Request):
+    token = request.headers.get("Authorization")
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing token")
+    token = token.replace("Bearer ", "")
+    
+    # 실제 검증 로직
+    user = {"user_id": "admin", "role": "admin"}  # 예시
+    request.state.user = user
+    return user
+
+✅ 정리
+
+인증 없는 API → 별도 Router(/auth)
+
+인증 있는 API → APIRouter(dependencies=[Depends(get_current_user)])
+
+Router 단위로 묶으면 v1/v2 등 버전 관리가 편함
+
+request.state.user를 통해 인증 정보를 쉽게 공유 가능
+
+원하면 나는 이어서
+v2 Router + 선택적 인증(Optional) API 구조까지 만들어서
+로그인 유무 상관없이 접근 가능 + 인증 필요 시 권한 체크 패턴까지 만들어줄 수 있어.
+
+그거 만들어줄까?
+
+
+
+==========================================================================================
+
 
 
 src/
