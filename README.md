@@ -1,3 +1,63 @@
+. userApi (기술적 레이어)
+TypeScript
+
+// api/userApi.ts
+export const userApi = {
+  // 1. GET (가져오기)
+  async getUserInfo(id: number) { 
+    return await axios.get(`/users/${id}`); 
+  },
+  // 2. POST (생성)
+  async postUser(data: UserData) { 
+    return await axios.post('/users', data); 
+  },
+  // 3. PUT/PATCH (수정)
+  async putUserInfo(id: number, data: UserData) { 
+    return await axios.put(`/users/${id}`, data); 
+  },
+  // 4. DELETE (삭제)
+  async deleteUser(id: number) { 
+    return await axios.delete(`/users/${id}`); 
+  },
+};
+2. userService (비즈니스 레이어)
+TypeScript
+
+// services/userService.ts
+import { userApi } from '@/api/userApi';
+import { useUserStore } from '@/stores/userStore';
+
+export const userService = {
+  // ⭐️ load: 데이터를 불러와서 처리하는 비즈니스 행위
+  async loadUserInfo(id: number) {
+    const userStore = useUserStore();
+    try {
+      const apiResponse = await userApi.getUserInfo(id); // API 호출
+      // ... 데이터 가공 로직 ...
+      userStore.setUser(apiResponse.data); // Store 업데이트
+    } catch (e) {
+      // ... 비즈니스 예외 처리 ...
+    }
+  },
+
+  // ⭐️ save: 사용자 정보를 저장/수정하는 비즈니스 행위
+  async saveUserInfo(id: number, data: UserData) {
+    const userStore = useUserStore();
+    // ... 사전 검증 로직 ...
+    const apiResponse = await userApi.putUserInfo(id, data); // API 호출
+    userStore.setUser(apiResponse.data); // Store 업데이트
+  },
+  
+  // ⭐️ remove: 사용자 제거 비즈니스 행위
+  async removeUser(id: number) {
+      await userApi.deleteUser(id);
+      // Store의 상태도 초기화하거나 업데이트...
+  }
+};
+이 방식은 함수명이 기술적(API) 역할과 비즈니스적(Service) 역할을 동시에 반영하여, 코드를 훨씬 더 구조적으로 만들어 줍니다.
+==================================================================================================
+
+
 아래는 PostgreSQL에서 시간별 / 일별 / 주별 / 월별로 모두 취합하는 표준 패턴입니다.
 timestamp 컬럼을 기준으로 date_trunc를 사용하면 됩니다.
 
