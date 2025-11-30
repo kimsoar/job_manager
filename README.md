@@ -1,3 +1,15 @@
+https://daisyui.com/docs/install/
+
+1. npm i -D daisyui@latest
+
+2. Add daisyUI to app.css:
+@plugin "daisyui";
+
+
+<span class="loading loading-dots loading-lg"></span>
+
+
+
 // api/userApi.ts
 export const userApi = {
   // 1. GET (가져오기)
