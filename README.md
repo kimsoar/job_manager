@@ -1,3 +1,56 @@
+BounceDots.vue
+
+<template>
+  <div class="flex items-end gap-1 text-muted-foreground">
+    <span class="dot dot1">•</span>
+    <span class="dot dot2">•</span>
+    <span class="dot dot3">•</span>
+  </div>
+</template>
+
+<script setup lang="ts"></script>
+
+<style lang="scss" scoped>
+.dot {
+  display: inline-block;
+  font-size: 22px;
+  transform: translateY(0);
+  animation: bounce 1s infinite ease-in-out;
+
+  &.dot1 {
+    animation-delay: 0s;
+  }
+  &.dot2 {
+    animation-delay: 0.15s;
+  }
+  &.dot3 {
+    animation-delay: 0.3s;
+  }
+}
+
+// 점 bounce 애니메이션
+@keyframes bounce {
+  0% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  30% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+  60% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+}
+</style>
+
+
+
 https://daisyui.com/docs/install/
 
 1. npm i -D daisyui@latest
