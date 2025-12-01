@@ -1,4 +1,47 @@
 <script setup lang="ts">
+interface Props {
+  text?: string;
+  size?: string;
+  gap?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  text: "ChatGPT is typing",
+  size: "text-base",
+  gap: "gap-1",
+});
+</script>
+
+<template>
+  <div class="flex items-center" :class="props.gap">
+    <span
+      v-for="(char, i) in props.text.split('')"
+      :key="i"
+      class="bounced-text inline-block"
+      :style="{ animationDelay: `${i * 0.1}s` }"
+      :class="props.size"
+    >
+      {{ char === ' ' ? '\u00A0' : char }}
+    </span>
+  </div>
+</template>
+
+<style scoped>
+@keyframes bounceChar {
+  0%   { transform: translateY(0); opacity: 0.6; }
+  30%  { transform: translateY(-4px); opacity: 1; }
+  60%  { transform: translateY(0); opacity: 0.8; }
+  100% { transform: translateY(0); opacity: 0.6; }
+}
+
+.bounced-text {
+  animation: bounceChar 0.8s infinite ease-in-out;
+}
+</style>
+
+
+
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 
 // 1. Props 정의
