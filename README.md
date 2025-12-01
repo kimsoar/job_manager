@@ -1,3 +1,53 @@
+
+SequentialBlinkText
+
+<script setup lang="ts">
+import { computed } from "vue"
+
+interface Props {
+  text: string
+  speed?: number        // 한 글자가 깜빡이는 속도(s)
+  color?: string        // Tailwind text color
+  blinkOpacity?: number // 사라질 때 불투명도
+}
+
+const props = defineProps<Props>()
+
+const chars = computed(() => props.text.split(""))
+const speed = computed(() => props.speed || 0.9)
+const color = computed(() => props.color || "text-primary")
+const blinkOpacity = computed(() => props.blinkOpacity || 0.2)
+
+const charStyle = (index: number) => ({
+  animation: `blink ${speed.value}s infinite`,
+  animationDelay: `${index * 0.15}s`,
+})
+</script>
+
+<template>
+  <span class="inline-flex">
+    <span
+      v-for="(c, i) in chars"
+      :key="i"
+      :class="color"
+      :style="charStyle(i)"
+      class="inline-block"
+    >
+      {{ c }}
+    </span>
+  </span>
+</template>
+
+<style scoped>
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+</style>
+
+
+
+
 BounceDots.vue
 
 <template>
