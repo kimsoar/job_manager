@@ -1,3 +1,74 @@
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+
+// 1. Props 정의
+interface Props {
+  text: string; // 깜빡일 문자열 (예: 'Waiting for response...')
+  interval?: number; // 문자(char)별 깜빡임 속도 (밀리초), 기본값: 500ms
+  className?: string; // 전체 텍스트에 적용할 Tailwind CSS 클래스
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  interval: 500,
+  className: 'text-lg font-semibold text-gray-500',
+});
+
+// 2. 깜빡임 상태 관리
+const visibleIndex = ref(0); // 현재 보이는 문자열의 길이 (0부터 시작)
+let blinkTimer: number | null = null; // 타이머 ID
+
+// 3. 타이머 로직 (순차적 깜빡임 구현)
+const startBlinking = () => {
+  // 기존 타이머가 있으면 정리
+  if (blinkTimer !== null) {
+    clearInterval(blinkTimer);
+  }
+
+  // 주기적으로 visibleIndex를 업데이트합니다.
+  blinkTimer = setInterval(() => {
+    // visibleIndex를 1씩 증가시키고, 문자열 길이(props.text.length)에 도달하면 0으로 리셋합니다.
+    visibleIndex.value = (visibleIndex.value + 1) % (props.text.length + 1);
+  }, props.interval) as unknown as number; // TypeScript 환경에서 setInterval의 반환 타입 보정
+};
+
+// 4. 문자열 분리 및 상태 계산
+const characters = computed(() => props.text.split(''));
+
+// 5. 컴포넌트 라이프사이클 훅
+onMounted(() => {
+  startBlinking();
+});
+
+onUnmounted(() => {
+  if (blinkTimer !== null) {
+    clearInterval(blinkTimer);
+  }
+});
+
+// 
+</script>
+
+<template>
+  <div :class="props.className">
+    <span v-for="(char, index) in characters" :key="index">
+      <span 
+        :class="{ 'opacity-100': index < visibleIndex, 'opacity-0': index >= visibleIndex }" 
+        class="transition-opacity duration-150 ease-in-out inline-block"
+      >
+        {{ char }}
+      </span>
+    </span>
+  </div>
+</template>
+
+<style scoped>
+/* Tailwind CSS를 사용하므로 추가적인 <style>은 필요하지 않습니다. */
+/* duration-150을 사용하여 깜빡이는 효과를 부드럽게 합니다. */
+</style>
+
+
+
+
 {"id":"48321","variant":"standard"}
 <script setup lang="ts">
 import { computed, toRefs, withDefaults, defineProps } from "vue"
