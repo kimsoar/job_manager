@@ -1,4 +1,74 @@
+{"id":"48321","variant":"standard"}
+<script setup lang="ts">
+import { computed, toRefs, withDefaults, defineProps } from "vue"
 
+/**
+ Props 정의 (text는 필수)
+ withDefaults를 써서 기본값 안전하게 지정
+*/
+const props = withDefaults(
+  defineProps<{
+    text: string
+    speed?: number        // 한 글자가 깜빡이는 주기 (초)
+    color?: string        // Tailwind 텍스트 색상 클래스 (예: 'text-primary')
+    blinkOpacity?: number // 깜빡일 때 최소 불투명도 (0 ~ 1)
+  }>(),
+  {
+    speed: 0.9,
+    color: "text-primary",
+    blinkOpacity: 0.2,
+  }
+)
+
+const { text } = toRefs(props)
+
+// 글자 배열 (공백도 보존)
+const chars = computed(() => Array.from(text.value))
+
+/**
+ charStyle: 각 글자에 적용할 inline style 반환
+ - animation: blink <speed>s infinite
+ - animationDelay: 글자별 지연
+ - --blink-opacity: CSS 변수로 keyframes에서 사용
+*/
+const charStyle = (index: number) => {
+  const delay = index * 0.12 // 글자 간 딜레이(초) — 필요시 조절
+  return {
+    animation: `sb-blink ${props.speed}s infinite`,
+    animationDelay: `${delay}s`,
+    // CSS variable로 전달해서 keyframes에서 사용
+    "--blink-opacity": String(props.blinkOpacity),
+  } as Record<string, string>
+}
+</script>
+
+<template>
+  <span class="inline-flex" aria-hidden="false">
+    <span
+      v-for="(c, i) in chars"
+      :key="i"
+      :class="[props.color, 'inline-block']"
+      :style="charStyle(i)"
+    >
+      {{ c === ' ' ? '\u00A0' : c }}
+    </span>
+  </span>
+</template>
+
+<style scoped>
+/* keyframes에서 CSS 변수 --blink-opacity 사용 */
+@keyframes sb-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    /* props에서 전달한 값 사용 (기본 0.2) */
+    opacity: var(--blink-opacity, 0.2);
+  }
+}
+
+/* 기본적으로 inline-block에 애니메이션 적용 (스타일은 inline으로 덮음) */
+</style>
 SequentialBlinkText
 
 <script setup lang="ts">
