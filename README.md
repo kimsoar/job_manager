@@ -1,3 +1,34 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <rules>
+
+        <!-- 1) API Reverse Proxy -->
+        <rule name="API-Proxy" stopProcessing="true">
+          <match url="^api/(.*)" />
+          <action type="Rewrite" url="http://127.0.0.1:7001/api/{R:1}" appendQueryString="true" />
+        </rule>
+
+        <!-- 2) Catch-all Rule: 모든 요청을 FastAPI로 전달 -->
+        <rule name="SPA-CatchAll" stopProcessing="true">
+          <match url="^(.*)" />
+          <action type="Rewrite" url="http://127.0.0.1:7001/{R:1}" appendQueryString="true" />
+        </rule>
+
+      </rules>
+    </rewrite>
+
+    <!-- WebSocket 필요 시 -->
+    <webSocket enabled="true" />
+
+  </system.webServer>
+</configuration>
+
+
+
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
