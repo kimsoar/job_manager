@@ -1,3 +1,30 @@
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+app = FastAPI()
+
+# dist 폴더 경로
+dist_path = Path(__file__).parent.parent / "dist"
+
+# 1) 정적 파일 제공
+app.mount("/assets", StaticFiles(directory=dist_path / "assets"), name="assets")
+
+# 2) FastAPI API 라우터
+@app.get("/api/health")
+def health():
+    return {"status": "ok"}
+
+# 3) Vue SPA: 모든 나머지 라우팅 → index.html
+@app.get("/{full_path:path}")
+def spa_router(full_path: str):
+    index_file = dist_path / "index.html"
+    return FileResponse(index_file)
+
+
+
+
 <script setup lang="ts">
 interface Props {
   text?: string;
