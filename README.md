@@ -1,3 +1,89 @@
+
+// src/composables/useAutosizeTextarea.ts
+
+import { ref, watch, onMounted, nextTick, type Ref } from 'vue';
+
+/**
+ * v-model 값에 따라 textarea의 높이를 자동으로 조절하는 로직
+ * @param modelValue v-model로 바인딩된 텍스트 내용의 Ref
+ * @returns {Ref<HTMLTextAreaElement | null>} textarea DOM 요소에 바인딩할 Ref
+ */
+export function useAutosizeTextarea(modelValue: Ref<string>) {
+  // 1. <textarea> DOM 요소를 참조하기 위한 Ref
+  const textareaRef = ref<HTMLTextAreaElement | null>(null);
+
+  // 2. 높이 조절 로직
+  const resize = () => {
+    if (textareaRef.value) {
+      const textarea = textareaRef.value;
+
+      // 1단계: 높이를 'auto'로 설정하여 스크롤바를 숨기고
+      // 컨텐츠에 맞는 최소 높이를 재계산하도록 준비합니다.
+      textarea.style.height = 'auto';
+
+      // 2단계: 'scrollHeight' (컨텐츠 전체 높이)를 새로운 높이로 설정합니다.
+      // 36px은 (줄 높이 + 패딩)에 따라 다를 수 있으며, 최소 높이 확보를 위해
+      // 여기서는 scrollHeight를 그대로 사용합니다.
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  };
+
+  // 3. 텍스트 내용(modelValue)이 변경될 때마다 높이 조절
+  watch(modelValue, () => {
+    // DOM 업데이트가 완료된 후 (e.g., 새 줄이 추가된 후) 높이를 계산
+    nextTick(resize);
+  });
+
+  // 4. 컴포넌트 마운트 시 초기 높이 설정
+  onMounted(resize);
+
+  return { textareaRef, resize };
+}
+
+
+
+
+
+
+
+<script setup lang="ts">
+import { ref } from 'vue';
+// shadcn-vue의 Textarea 컴포넌트 임포트
+import { Textarea } from '@/components/ui/textarea';
+import { useAutosizeTextarea } from './composables/useAutosizeTextarea';
+
+// 1. v-model로 사용할 반응형 상태
+const content = ref('');
+</script>
+
+<template>
+  <div>
+    <Textarea
+      v-model="content"
+      placeholder="여기에 내용을 입력하세요..."
+      :ref="useAutosizeTextarea(content).textareaRef"
+      
+      class="
+        min-h-[100px]  /* 최소 높이 설정 */
+        resize-none    /* 사용자가 임의로 크기를 조절하는 기능 비활성화 */
+        overflow-hidden /* 스크롤바가 생기지 않도록 숨김 */
+      "
+    />
+    <p class="mt-2 text-sm text-gray-500">
+      현재 내용: {{ content.length }}자
+    </p>
+  </div>
+</template>
+
+
+
+=====
+
+
+
+
+
+
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from "vue"
 import { Textarea } from "@/components/ui/textarea"
