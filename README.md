@@ -1,3 +1,162 @@
+
+<script setup lang="ts">
+import { ref, onMounted } from "vue"
+import { Textarea } from "@/components/ui/textarea"
+
+interface PreviewImage {
+  id: string
+  file: File
+  url: string       // 미리보기용
+  base64: string    // 전송용
+}
+
+const message = ref("")
+const images = ref<PreviewImage[]>([])
+
+const dropActive = ref(false)
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
+
+function resizeTextarea() {
+  if (!textareaRef.value) return
+  textareaRef.value.style.height = "auto"
+  textareaRef.value.style.height = textareaRef.value.scrollHeight + "px"
+}
+
+onMounted(() => {
+  resizeTextarea()
+})
+
+function onInput() {
+  resizeTextarea()
+}
+
+// 파일을 Base64로 변환
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.readAsDataURL(file)
+  })
+}
+
+async function addImage(file: File) {
+  const base64 = await fileToBase64(file)
+  const url = URL.createObjectURL(file)
+
+  images.value.push({
+    id: crypto.randomUUID(),
+    file,
+    url,
+    base64,
+  })
+}
+
+// 붙여넣기 처리
+function onPaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      const file = item.getAsFile()
+      if (file) addImage(file)
+    }
+  }
+}
+
+// Drag & Drop
+function onDrop(e: DragEvent) {
+  dropActive.value = false
+  const files = e.dataTransfer?.files
+  if (!files) return
+
+  for (const file of files) {
+    if (file.type.startsWith("image/")) {
+      addImage(file)
+    }
+  }
+}
+
+function onDragOver(e: DragEvent) {
+  e.preventDefault()
+  dropActive.value = true
+}
+
+function onDragLeave() {
+  dropActive.value = false
+}
+
+function removeImage(id: string) {
+  images.value = images.value.filter((img) => img.id !== id)
+}
+
+// 최종 전송
+function submit() {
+  const payload = {
+    text: message.value,
+    images: images.value.map((img) => img.base64),
+  }
+
+  console.log("전송 Payload:", payload)
+
+  // 실제 API 호출 예시
+  // await api.post("/message", payload)
+
+  message.value = ""
+  images.value = []
+  resizeTextarea()
+}
+</script>
+
+
+<template>
+  <div 
+    class="w-full max-w-3xl mx-auto p-4 rounded-xl border bg-white shadow-sm transition-colors"
+    @drop.prevent="onDrop"
+    @dragover.prevent="onDragOver"
+    @dragleave="onDragLeave"
+    :class="{ 'border-blue-400 bg-blue-50/50': dropActive }"
+  >
+
+    <!-- 이미지 미리보기 -->
+    <div v-if="images.length" class="flex flex-wrap gap-3 mb-3">
+      <div
+        v-for="img in images"
+        :key="img.id"
+        class="relative w-24 h-24 rounded-md border overflow-hidden"
+      >
+        <img :src="img.url" class="object-cover w-full h-full" />
+        <button
+          class="absolute top-1 right-1 bg-black/60 text-white text-xs rounded px-1"
+          @click="removeImage(img.id)"
+        >✕</button>
+      </div>
+    </div>
+
+    <!-- 입력 + 전송 -->
+    <div class="flex items-end gap-3">
+      <Textarea
+        ref="textareaRef"
+        v-model="message"
+        @paste="onPaste"
+        @input="onInput"
+        placeholder="메시지를 입력하거나 이미지를 붙여넣기하세요…"
+        class="flex-1 min-h-[40px] max-h-[200px] overflow-y-auto resize-none rounded-lg 
+               border px-3 py-2 focus-visible:ring-2"
+      />
+
+      <button
+        @click="submit"
+        class="h-10 px-4 rounded-md bg-black text-white hover:bg-black/80"
+      >
+        전송
+      </button>
+    </div>
+
+  </div>
+</template>
+
+
 <script setup lang="ts">
 import { ref, onMounted } from "vue"
 import { Textarea } from "@/components/ui/textarea"
