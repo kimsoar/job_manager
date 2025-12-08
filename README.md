@@ -1,3 +1,181 @@
+<script setup lang="ts">
+import { ref, onMounted, nextTick } from "vue"
+import { Textarea } from "@/components/ui/textarea"
+
+interface PreviewImage {
+  id: string
+  file: File
+  base64: string   // 미리보기 & 전송용 (data:*;base64,...)
+}
+
+const message = ref("")
+const images = ref<PreviewImage[]>([])
+const dropActive = ref(false)
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
+
+// --- autosize ---
+function resizeTextarea() {
+  const ta = textareaRef.value
+  if (!ta) return
+  // reset then set to scrollHeight
+  ta.style.height = "0px"
+  // a small offset ensures no scrollbar flicker
+  ta.style.height = (ta.scrollHeight) + "px"
+}
+
+onMounted(async () => {
+  await nextTick()
+  resizeTextarea()
+})
+
+// --- 파일 -> base64 변환 ---
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error("FileReader error"))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function addImageFile(file: File) {
+  if (!file.type.startsWith("image/")) return
+  // optional: file size limit (예: 5MB)
+  const MAX_MB = 8
+  if (file.size > MAX_MB * 1024 * 1024) {
+    // 원하면 사용자에게 알리는 UI를 추가하세요
+    console.warn("파일이 너무 큽니다:", file.name)
+    return
+  }
+
+  const base64 = await fileToBase64(file)
+  images.value.push({
+    id: crypto.randomUUID(),
+    file,
+    base64,
+  })
+}
+
+// --- paste ---
+function onPaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    if (item.type.startsWith("image/")) {
+      const file = item.getAsFile()
+      if (file) addImageFile(file)
+    }
+  }
+}
+
+// --- drag & drop ---
+function onDragOver(e: DragEvent) {
+  e.preventDefault()
+  dropActive.value = true
+}
+function onDragLeave() {
+  dropActive.value = false
+}
+function onDrop(e: DragEvent) {
+  e.preventDefault()
+  dropActive.value = false
+  const files = e.dataTransfer?.files
+  if (!files) return
+  for (let i = 0; i < files.length; i++) {
+    addImageFile(files[i])
+  }
+}
+
+// --- 기타 UI 핸들러 ---
+function onInput() {
+  resizeTextarea()
+}
+
+function removeImage(id: string) {
+  images.value = images.value.filter(i => i.id !== id)
+}
+
+// --- submit (Base64 전송) ---
+async function submit() {
+  if (!message.value.trim() && images.value.length === 0) return
+
+  const payload = {
+    text: message.value.trim(),
+    images: images.value.map(i => i.base64),
+  }
+
+  // 예시: 실제 API 호출
+  // await api.post("/api/chat", payload)
+
+  console.log("전송 payload:", payload)
+
+  // 초기화
+  message.value = ""
+  images.value = []
+  await nextTick()
+  resizeTextarea()
+}
+</script>
+
+<template>
+  <div
+    class="w-full max-w-3xl mx-auto p-4 rounded-xl border bg-white shadow-sm transition-colors"
+    @dragover.prevent="onDragOver"
+    @dragleave="onDragLeave"
+    @drop.prevent="onDrop"
+    :class="{ 'border-blue-400 bg-blue-50/50': dropActive }"
+  >
+    <!-- 이미지 미리보기 -->
+    <div v-if="images.length" class="flex flex-wrap gap-3 mb-3">
+      <div
+        v-for="img in images"
+        :key="img.id"
+        class="relative w-28 h-28 rounded-md border overflow-hidden bg-gray-50"
+      >
+        <img :src="img.base64" class="object-cover w-full h-full" />
+        <button
+          @click="removeImage(img.id)"
+          class="absolute top-1 right-1 bg-black/60 text-white text-xs rounded px-1"
+          aria-label="이미지 삭제"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- 입력창 -->
+    <div class="flex items-end gap-3">
+      <!-- asChild로 내부 textarea에 ref 직접 붙임 -->
+      <Textarea class="flex-1" asChild>
+        <textarea
+          ref="textareaRef"
+          v-model="message"
+          @paste="onPaste"
+          @input="onInput"
+          placeholder="메시지를 입력하거나 이미지를 붙여넣기하세요…"
+          class="w-full min-h-[40px] max-h-[300px] overflow-y-auto resize-none rounded-lg border px-3 py-2 text-sm
+                 placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:outline-none"
+        />
+      </Textarea>
+
+      <button
+        @click="submit"
+        class="h-10 px-4 rounded-md bg-black text-white font-medium hover:bg-black/80 disabled:opacity-50"
+        :disabled="!message.trim() && images.length === 0"
+      >
+        전송
+      </button>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* 필요 시 추가 스타일 */
+</style>
+
+
+
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue"
