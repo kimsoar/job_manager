@@ -1,3 +1,30 @@
+<script setup lang="ts">
+import { ref } from "vue";
+import { Textarea } from "@/components/ui/textarea";
+
+const bio = ref("");
+</script>
+
+<template>
+  <Textarea
+    v-model="bio"
+    v-autoresize="300"   <!-- 최대 높이 300px -->
+    class="overflow-hidden"
+  />
+</template>
+
+
+import { createApp } from "vue";
+import App from "./App.vue";
+import autoresize from "@/directives/autoresize";
+
+const app = createApp(App);
+
+app.directive("autoresize", autoresize);
+
+app.mount("#app");
+
+
 import type { DirectiveBinding } from "vue";
 
 const adjustHeight = (el: HTMLTextAreaElement, maxHeight?: number) => {
