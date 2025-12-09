@@ -1,3 +1,39 @@
+import type { DirectiveBinding } from "vue";
+
+const adjustHeight = (el: HTMLTextAreaElement, maxHeight?: number) => {
+  el.style.height = "0px";                    // reset
+  el.style.height = el.scrollHeight + "px";   // adjust
+
+  if (maxHeight && el.scrollHeight > maxHeight) {
+    el.style.height = maxHeight + "px";
+    el.style.overflowY = "auto";
+  } else {
+    el.style.overflowY = "hidden";
+  }
+};
+
+export default {
+  mounted(el: HTMLTextAreaElement, binding: DirectiveBinding) {
+    const maxHeight = binding.value;
+
+    // disable manual resizing
+    el.style.resize = "none";
+
+    // adjust on mount
+    requestAnimationFrame(() => adjustHeight(el, maxHeight));
+
+    // adjust on input
+    el.addEventListener("input", () => adjustHeight(el, maxHeight));
+  },
+
+  updated(el: HTMLTextAreaElement, binding: DirectiveBinding) {
+    const maxHeight = binding.value;
+    requestAnimationFrame(() => adjustHeight(el, maxHeight));
+  },
+};
+
+
+
 
 // src/composables/useAutosizeTextarea.ts
 
