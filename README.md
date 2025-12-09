@@ -1,3 +1,94 @@
+import type { DirectiveBinding } from "vue";
+
+interface Options {
+  maxHeight?: number;
+  minHeight?: number;
+  duration?: number; // 애니메이션 지속시간(ms)
+}
+
+const adjustHeight = (el: HTMLTextAreaElement, options: Options) => {
+  const {
+    maxHeight = 200,
+    minHeight = 40,
+    duration = 150,
+  } = options;
+
+  // 애니메이션 적용
+  el.style.transition = `height ${duration}ms ease`;
+
+  // height 초기화 후 scrollHeight 측정
+  el.style.height = "auto";
+  const contentHeight = el.scrollHeight;
+
+  // 최소 높이 → 초기 입력창 크기 보장
+  const targetHeight = Math.max(contentHeight, minHeight);
+
+  // 최대 높이 미만일 때
+  if (targetHeight <= maxHeight) {
+    el.style.overflowY = "hidden";
+    el.style.height = `${targetHeight}px`;
+    return;
+  }
+
+  // 최대 높이 이상일 때 → 고정 크기 + 스크롤
+  el.style.height = `${maxHeight}px`;
+  el.style.overflowY = "auto";
+
+  // 스크롤을 항상 아래로
+  requestAnimationFrame(() => {
+    el.scrollTop = el.scrollHeight;
+  });
+};
+
+export default {
+  mounted(el: HTMLTextAreaElement, binding: DirectiveBinding) {
+    const value = binding.value || {};
+    const options: Options =
+      typeof value === "object"
+        ? value
+        : { maxHeight: Number(value) || 200 };
+
+    // 사용자가 강제로 resize하지 못하도록
+    el.style.resize = "none";
+
+    // 초기 높이 맞추기
+    requestAnimationFrame(() => adjustHeight(el, options));
+
+    // 입력할 때 자연스럽게 변경
+    el.addEventListener("input", () => adjustHeight(el, options));
+  },
+
+  updated(el: HTMLTextAreaElement, binding: DirectiveBinding) {
+    const value = binding.value || {};
+    const options: Options =
+      typeof value === "object"
+        ? value
+        : { maxHeight: Number(value) || 200 };
+
+    requestAnimationFrame(() => adjustHeight(el, options));
+  },
+};
+
+import chatgptAutoresize from "@/directives/chatgpt-autoresize";
+
+app.directive("chatgpt-autoresize", chatgptAutoresize);
+
+
+
+<Textarea
+  v-model="message"
+  v-chatgpt-autoresize="{ maxHeight: 200, minHeight: 40, duration: 150 }"
+  class="overflow-hidden"
+  placeholder="메시지를 입력하세요..."
+/>
+
+
+
+
+
+
+
+
 
 import type { DirectiveBinding } from "vue";
 
