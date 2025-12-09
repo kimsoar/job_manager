@@ -1,3 +1,44 @@
+
+import type { DirectiveBinding } from "vue";
+
+const adjustHeight = (el: HTMLTextAreaElement, maxHeight?: number) => {
+  // 콘텐츠 줄어들 때 높이가 줄어드는 문제 방지 위해 reset
+  el.style.height = "auto";
+
+  const contentHeight = el.scrollHeight;
+
+  if (maxHeight && contentHeight > maxHeight) {
+    el.style.height = maxHeight + "px";
+    el.style.overflowY = "auto";
+
+    // 🔥 스크롤이 생긴 경우 항상 아래로 유지
+    el.scrollTop = el.scrollHeight;
+  } else {
+    el.style.height = contentHeight + "px";
+    el.style.overflowY = "hidden";
+
+    // 🔥 overflow 없을 때는 scrollTop 리셋 필요 없음
+  }
+};
+
+export default {
+  mounted(el: HTMLTextAreaElement, binding: DirectiveBinding) {
+    const maxHeight = binding.value;
+
+    el.style.resize = "none";
+
+    requestAnimationFrame(() => adjustHeight(el, maxHeight));
+    el.addEventListener("input", () => adjustHeight(el, maxHeight));
+  },
+
+  updated(el: HTMLTextAreaElement, binding: DirectiveBinding) {
+    const maxHeight = binding.value;
+    requestAnimationFrame(() => adjustHeight(el, maxHeight));
+  },
+};
+
+
+
 <script setup lang="ts">
 import { ref } from "vue";
 import { Textarea } from "@/components/ui/textarea";
