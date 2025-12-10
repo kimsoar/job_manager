@@ -97,6 +97,105 @@ onMounted(() => {
 
 
 
+<script setup lang="ts">
+import { ref, onMounted } from "vue";
+
+const editor = ref<HTMLDivElement | null>(null);
+
+// 옵션 설정
+const maxHeight = 200;
+const minHeight = 40;
+
+// paste로 이미지 삽입
+const onPaste = (e: ClipboardEvent) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (!file) continue;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        insertImageAtCursor(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      e.preventDefault();
+    }
+  }
+};
+
+// 드래그&드롭 이미지 삽입
+const onDrop = (e: DragEvent) => {
+  e.preventDefault();
+  const files = e.dataTransfer?.files;
+  if (!files) return;
+
+  [...files].forEach((file) => {
+    if (!file.type.startsWith("image/")) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      insertImageAtCursor(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+const preventDefaults = (e: Event) => e.preventDefault();
+
+// 커서 위치에 이미지 삽입
+const insertImageAtCursor = (src: string) => {
+  const img = document.createElement("img");
+  img.src = src;
+  img.className = "max-w-[200px] rounded-md my-2";
+
+  const selection = window.getSelection();
+  if (!selection || !selection.rangeCount) {
+    editor.value?.appendChild(img);
+    autoResize();
+    return;
+  }
+
+  const range = selection.getRangeAt(0);
+  range.insertNode(img);
+  range.setStartAfter(img);
+  range.setEndAfter(img);
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  autoResize();
+};
+
+// ChatGPT 스타일 height 자동 조절
+const autoResize = () => {
+  const el = editor.value;
+  if (!el) return;
+
+  el.style.height = "auto";
+
+  const contentHeight = el.scrollHeight;
+  const targetHeight = Math.max(contentHeight, minHeight);
+
+  if (targetHeight <= maxHeight) {
+    el.style.height = targetHeight + "px";
+    el.style.overflowY = "hidden";
+  } else {
+    el.style.height = maxHeight + "px";
+    el.style.overflowY = "auto";
+    el.scrollTop = el.scrollHeight;
+  }
+};
+
+onMounted(() => {
+  editor.value?.addEventListener("input", autoResize);
+});
+</script>
+
+
+
 <template>
   <ChatInput
     v-model="content"
