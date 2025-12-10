@@ -1,3 +1,26 @@
+<template>
+  <div
+    ref="editor"
+    contenteditable="true"
+    @paste="onPaste"
+    @drop="onDrop"
+    @dragover="preventDefaults"
+    @dragenter="preventDefaults"
+
+    class="
+      flex w-full rounded-md border border-input bg-background px-3 py-2
+      text-base ring-offset-background placeholder:text-muted-foreground
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+      focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50
+      shadow-sm leading-relaxed
+
+      min-h-[40px] max-h-[200px]
+      overflow-hidden transition-all
+    "
+  ></div>
+</template>
+
+
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 
