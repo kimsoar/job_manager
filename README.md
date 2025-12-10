@@ -1,3 +1,182 @@
+
+<template>
+  <ChatInput
+    v-model="content"
+    :uploadImage="uploadImage"
+  />
+</template>
+
+<script setup lang="ts">
+import ChatInput from "./ChatInput.vue";
+import { ref } from "vue";
+
+const content = ref("");
+
+const uploadImage = async (file: File, onProgress: (percent: number) => void) => {
+  // 예: FastAPI 업로드
+  const form = new FormData();
+  form.append("file", file);
+
+  return new Promise(async (resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload");
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      const { url } = JSON.parse(xhr.responseText);
+      resolve(url); // server url 리턴
+    };
+
+    xhr.send(form);
+  });
+};
+</script>
+
+
+
+<script setup lang="ts">
+import { ref, onMounted, nextTick, watch } from "vue";
+
+const props = defineProps<{
+  modelValue: string;
+  uploadImage: (file: File, onProgress: (p: number) => void) => Promise<string>;
+}>();
+
+const emit = defineEmits(["update:modelValue"]);
+
+const editor = ref<HTMLDivElement | null>(null);
+const isComposing = ref(false);
+
+const updateModelValue = () => {
+  if (isComposing.value) return;
+  emit("update:modelValue", editor.value?.innerHTML ?? "");
+};
+
+watch(
+  () => props.modelValue,
+  (v) => {
+    if (editor.value && editor.value.innerHTML !== v) {
+      editor.value.innerHTML = v || "";
+    }
+  }
+);
+
+onMounted(() => {
+  editor.value!.innerHTML = props.modelValue || "";
+});
+
+/* ---------------------------------------------------------
+   이미지 붙여넣기 처리
+--------------------------------------------------------- */
+const onPaste = async (e: ClipboardEvent) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (!item.type.startsWith("image/")) continue;
+
+    const file = item.getAsFile();
+    if (!file) return;
+
+    e.preventDefault();
+
+    // 1) Blob URL로 임시 삽입
+    const blobUrl = URL.createObjectURL(file);
+
+    const tempId = "img-" + Math.random().toString(36).slice(2, 9);
+
+    insertAtCursor(
+      `<span class="relative inline-block group" data-temp="${tempId}">
+          <img src="${blobUrl}" class="max-w-[150px] rounded-md" />
+          <button class="absolute -top-2 -right-2 w-5 h-5 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
+            data-remove="${tempId}">
+            ×
+          </button>
+
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-300">
+            <div class="h-full bg-blue-500 upload-progress-${tempId}" style="width:0%"></div>
+          </div>
+      </span>`
+    );
+
+    updateModelValue();
+
+    // 2) 이미지 업로드
+    const serverUrl = await props.uploadImage(file, (percent) => {
+      const bar = editor.value?.querySelector(
+        `.upload-progress-${tempId}`
+      ) as HTMLElement;
+      if (bar) bar.style.width = `${percent}%`;
+    });
+
+    // 3) blob → server-url로 교체
+    const el = editor.value?.querySelector(`[data-temp="${tempId}"]`);
+    if (el) {
+      el.innerHTML = `
+        <img src="${serverUrl}" class="max-w-[150px] rounded-md" />
+        <button class="absolute -top-2 -right-2 w-5 h-5 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
+          data-remove="${tempId}">
+          ×
+        </button>
+      `;
+    }
+
+    updateModelValue();
+  }
+};
+
+/* ---------------------------------------------------------
+   X 버튼으로 이미지 삭제
+--------------------------------------------------------- */
+const onClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement;
+  const id = target.getAttribute("data-remove");
+  if (!id) return;
+
+  const el = editor.value?.querySelector(`[data-temp="${id}"]`);
+  if (el) el.remove();
+
+  updateModelValue();
+};
+
+/* ---------------------------------------------------------
+   커서 위치에 HTML 삽입
+--------------------------------------------------------- */
+const insertAtCursor = (html: string) => {
+  editor.value?.focus();
+  document.execCommand("insertHTML", false, html);
+};
+</script>
+
+<template>
+  <div
+    class="border rounded-md p-3 min-h-[48px] max-h-[300px] overflow-y-auto focus-within:ring-2 focus-within:ring-ring bg-background text-foreground shadow-sm"
+  >
+    <div
+      ref="editor"
+      contenteditable="true"
+      class="outline-none whitespace-pre-wrap break-words"
+      @input="updateModelValue"
+      @paste="onPaste"
+      @click="onClick"
+      @compositionstart="isComposing = true"
+      @compositionend="isComposing = false"
+    ></div>
+  </div>
+</template>
+
+<style scoped>
+/* shadcn-vue Textarea 스타일과 동일한 느낌 유지 */
+</style>
+
+
+
+
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 
