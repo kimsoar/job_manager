@@ -1,3 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <rules>
+
+        <!-- 0) 정적 파일 직접 프록시 (favicon, assets 등) -->
+        <rule name="Static-Files" stopProcessing="true">
+          <match url="^(favicon\.ico|favicon\.png|assets/.*)$" />
+          <action type="Rewrite" url="http://127.0.0.1:7001/{R:0}" appendQueryString="true" />
+        </rule>
+
+        <!-- 1) API Reverse Proxy -->
+        <rule name="API-Proxy" stopProcessing="true">
+          <match url="^api/(.*)" />
+          <action type="Rewrite" url="http://127.0.0.1:7001/api/{R:1}" appendQueryString="true" />
+        </rule>
+
+        <!-- 2) SPA Catch-all -->
+        <rule name="SPA-CatchAll" stopProcessing="true">
+          <match url="^(.*)" />
+          <action type="Rewrite" url="http://127.0.0.1:7001/{R:1}" appendQueryString="true" />
+        </rule>
+
+      </rules>
+    </rewrite>
+
+    <webSocket enabled="true" />
+  </system.webServer>
+</configuration>
+
+
+
+@app.get("/favicon.png")
+async def favicon_png():
+    return FileResponse(dist_path / "favicon.png")
+
+
+
+
 // router/index.ts
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '@/pages/Home.vue'
