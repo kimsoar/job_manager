@@ -1,3 +1,46 @@
+// router/index.ts
+import { createRouter, createWebHistory } from 'vue-router'
+import Home from '@/pages/Home.vue'
+import AdminPage from '@/pages/AdminPage.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const routes = [
+  {
+    path: '/',
+    name: 'home',
+    component: Home
+  },
+  {
+    path: '/admin',
+    name: 'admin',
+    component: AdminPage,
+    meta: { requiresAdmin: true }   // <<--- admin 필요
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+// 전역 가드
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+
+  // 메타에 admin 권한 필요 여부 체크
+  if (to.meta.requiresAdmin) {
+    if (!auth.isAdmin) {
+      return { name: 'home' }
+    }
+  }
+
+  return true
+})
+
+export default router
+
+
+
 <template>
   <div
     ref="editor"
