@@ -1,3 +1,54 @@
+@Component
+public class AuthFilter extends OncePerRequestFilter {
+
+    private final DwpProperties dwpProperties;
+    private final AntPathMatcher pathMatcher = new AntPathMatcher();
+
+    public AuthFilter(DwpProperties dwpProperties) {
+        this.dwpProperties = dwpProperties;
+    }
+
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        String uri = request.getRequestURI();
+        DwpProperties.NoAuth noAuth = dwpProperties.getNoAuth();
+
+        // 1️⃣ 전체 스킵
+        if (noAuth.isSkipAll()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // 2️⃣ Ant 패턴 매칭
+        if (isNoAuthUrl(uri, noAuth.getUrlList())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // 3️⃣ 여기서부터 인증 로직
+        // authenticate(request);
+
+        filterChain.doFilter(request, response);
+    }
+
+    private boolean isNoAuthUrl(String uri, List<String> patterns) {
+        if (patterns == null || patterns.isEmpty()) {
+            return false;
+        }
+
+        return patterns.stream()
+                .anyMatch(pattern -> pathMatcher.match(pattern, uri));
+    }
+}
+
+
+
+
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
   <system.webServer>
