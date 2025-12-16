@@ -1,3 +1,10 @@
+public class ResponseDto {
+
+    @JsonDeserialize(using = DotNetDateDeserializer.class)
+    private LocalDateTime createdAt;
+}
+
+
 public class DotNetDateDeserializer extends JsonDeserializer<LocalDateTime> {
 
     private static final Pattern PATTERN =
