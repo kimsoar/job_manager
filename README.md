@@ -1,3 +1,28 @@
+public class DotNetDateDeserializer extends JsonDeserializer<LocalDateTime> {
+
+    private static final Pattern PATTERN =
+        Pattern.compile("/Date\\((\\d+)\\)/");
+
+    @Override
+    public LocalDateTime deserialize(
+            JsonParser p, DeserializationContext ctxt) throws IOException {
+
+        String value = p.getText();
+        Matcher matcher = PATTERN.matcher(value);
+
+        if (!matcher.find()) {
+            return null;
+        }
+
+        long millis = Long.parseLong(matcher.group(1));
+        return Instant.ofEpochMilli(millis)
+                .atZone(ZoneId.of("Asia/Seoul"))
+                .toLocalDateTime();
+    }
+}
+
+
+
 @Component
 public class AuthFilter extends OncePerRequestFilter {
 
