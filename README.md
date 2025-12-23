@@ -1,3 +1,70 @@
+src/
+├─ api/
+│  └─ chat/
+│     ├─ conversation/
+│     │  ├─ conversation.api.ts
+│     │  ├─ conversation.types.ts
+│     │  └─ index.ts
+│     │
+│     ├─ message/
+│     │  ├─ message.api.ts
+│     │  ├─ message.types.ts
+│     │  └─ index.ts
+│     │
+│     ├─ chat.usecase.ts        # conversation + message 오케스트레이션
+│     └─ index.ts
+│
+├─ domain/
+│  └─ chat/
+│     ├─ conversation.ts
+│     ├─ message.ts
+│     └─ index.ts
+│
+├─ mapper/
+│  └─ chat/
+│     ├─ conversation.mapper.ts
+│     ├─ message.mapper.ts
+│     └─ index.ts
+│
+├─ stores/
+│  └─ chat/
+│     ├─ conversation.store.ts
+│     ├─ message.store.ts
+│     ├─ chatUI.store.ts        # loading, streaming, error 등 UI 상태
+│     └─ index.ts
+│
+├─ usecases/
+│  └─ chat/
+│     ├─ sendMessage.usecase.ts
+│     ├─ loadConversation.usecase.ts
+│     ├─ regenerateMessage.usecase.ts
+│     └─ index.ts
+│
+├─ composables/
+│  └─ chat/
+│     ├─ useChat.ts             # UI 친화적 Facade
+│     └─ index.ts
+│
+├─ components/
+│  └─ chat/
+│     ├─ ChatView.vue
+│     ├─ ChatHeader.vue
+│     ├─ ChatMessageList.vue
+│     ├─ ChatMessageItem.vue
+│     └─ ChatInput.vue
+│
+├─ lib/
+│  ├─ http.ts                   # axios wrapper
+│  └─ sse.ts                    # streaming helper
+│
+├─ router/
+│  └─ index.ts
+│
+├─ App.vue
+└─ main.ts
+
+
+
 public class ResponseDto {
 
     @JsonDeserialize(using = DotNetDateDeserializer.class)
