@@ -1,3 +1,29 @@
+
+const AUTH_CALLBACK_PATH = '/auth/callback'
+
+router.beforeEach((to, from, next) => {
+  if (to.path === AUTH_CALLBACK_PATH) {
+    next()
+    return
+  }
+
+  const isFirstEntry = !sessionStorage.getItem('first-entry-checked')
+  const hasCode = typeof to.query.code === 'string'
+
+  if (isFirstEntry && hasCode) {
+    sessionStorage.setItem('first-entry-checked', 'true')
+
+    const { code, ...restQuery } = to.query
+
+    next({ path: to.path, query: restQuery, replace: true })
+    return
+  }
+
+  sessionStorage.setItem('first-entry-checked', 'true')
+  next()
+})
+
+
 src/
 ├─ api/
 │  └─ chat/
