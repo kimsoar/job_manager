@@ -1,3 +1,39 @@
+npm create vite@latest cart-mfe -- --template vue-ts
+cd cart-mfe
+npm install
+npm i @originjs/vite-plugin-federation
+
+
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import federation from '@originjs/vite-plugin-federation'
+
+export default defineConfig({
+  base: '/',
+  plugins: [
+    vue(),
+    federation({
+      name: 'cart_mfe',
+      filename: 'remoteEntry.js',
+      exposes: {
+        './CartPage': './src/pages/CartPage.vue'
+      },
+      shared: {
+        vue: { singleton: true },
+        'vue-router': { singleton: true },
+        pinia: { singleton: true }
+      }
+    })
+  ],
+  server: {
+    port: 5001,
+    cors: true,
+    origin: 'http://localhost:5000'
+  }
+})
+
+
+
  src/
 ├─ api/
 │  └─ chat/
