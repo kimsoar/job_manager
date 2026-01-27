@@ -1,3 +1,48 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { MoreOutlined } from '@ant-design/icons-vue'
+
+const selectedKeys = ref<string[]>(['1'])
+
+const onMenuAction = (key: string, action: string) => {
+  console.log('menu:', key, 'action:', action)
+}
+</script>
+
+<template>
+  <a-menu mode="inline" v-model:selectedKeys="selectedKeys">
+    <a-menu-item key="1">
+      <div class="flex items-center justify-between w-full group">
+        <!-- 왼쪽: 메뉴 텍스트 -->
+        <span>대시보드</span>
+
+        <!-- 오른쪽: 액션 -->
+        <a-dropdown trigger="click">
+          <template #overlay>
+            <a-menu>
+              <a-menu-item @click="onMenuAction('1', 'rename')">
+                이름 변경
+              </a-menu-item>
+              <a-menu-item @click="onMenuAction('1', 'delete')">
+                삭제
+              </a-menu-item>
+            </a-menu>
+          </template>
+
+          <button
+            class="opacity-0 group-hover:opacity-100 transition text-zinc-400 hover:text-white"
+            @click.stop
+          >
+            <MoreOutlined />
+          </button>
+        </a-dropdown>
+      </div>
+    </a-menu-item>
+  </a-menu>
+</template>
+
+
+
 npm create vite@latest cart-mfe -- --template vue-ts
 cd cart-mfe
 npm install
