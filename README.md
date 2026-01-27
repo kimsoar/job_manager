@@ -1,3 +1,151 @@
+그럼 바로 Remote Chat Feature에서 service와 composables를 분리하여 적용한 예제 구조를 만들어드릴게요.
+
+1️⃣ 디렉터리 구조
+remote-chat/src/features/chat/
+├─ components/
+│   ├─ ChatWindow.vue
+│   ├─ ChatInput.vue
+│   └─ ChatMessage.vue
+├─ store/
+│   └─ chatStore.ts           # Pinia 전역 상태
+├─ service/
+│   └─ chatService.ts         # API / 데이터 처리
+├─ composables/
+│   └─ useChat.ts             # Vue reactive 상태 + UI 로직
+├─ types/
+│   └─ chatMessage.ts
+└─ index.ts                   # Remote expose entry
+
+2️⃣ 타입 정의 (types/chatMessage.ts)
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+3️⃣ 서비스 (service/chatService.ts)
+import type { ChatMessage } from '../types/chatMessage'
+
+/**
+ * 서버에 메시지를 보내고 답변을 받아오는 순수 서비스
+ */
+export async function fetchChatReply(messages: ChatMessage[]): Promise<ChatMessage> {
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages }),
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return res.json()
+}
+
+
+UI와 반응형 상태와 전혀 의존하지 않음
+
+순수 데이터 처리와 비즈니스 로직만 담당
+
+4️⃣ Composable (composables/useChat.ts)
+import { ref } from 'vue'
+import { fetchChatReply } from '../service/chatService'
+import type { ChatMessage } from '../types/chatMessage'
+
+/**
+ * Vue Composition API용 훅
+ * service 호출 + reactive 상태를 제공
+ */
+export function useChat() {
+  const messages = ref<ChatMessage[]>([])
+  const loading = ref(false)
+
+  async function sendMessage(message: ChatMessage) {
+    messages.value.push(message)
+    loading.value = true
+
+    try {
+      const reply = await fetchChatReply(messages.value)
+      messages.value.push(reply)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  return {
+    messages,
+    loading,
+    sendMessage,
+  }
+}
+
+
+컴포넌트에서 바로 바인딩 가능
+
+service 호출 포함하지만 상태를 reactive하게 관리
+
+5️⃣ Pinia Store (선택, 전역 상태 필요 시) (store/chatStore.ts)
+import { defineStore } from 'pinia'
+import { useChat } from '../composables/useChat'
+
+export const useChatStore = defineStore('chat', () => {
+  const { messages, loading, sendMessage } = useChat()
+  return { messages, loading, sendMessage }
+})
+
+
+composable을 Pinia store 안에서 재사용
+
+전역 상태 관리도 가능, Host/Remote 공유 가능
+
+6️⃣ 컴포넌트에서 사용
+<template>
+  <div class="flex flex-col h-full">
+    <ChatWindow :messages="messages" class="flex-1 overflow-auto"/>
+    <ChatInput @send="sendMessage" :loading="loading" class="mt-2"/>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import { storeToRefs } from 'pinia'
+import { useChatStore } from '../store/chatStore'
+import ChatWindow from './ChatWindow.vue'
+import ChatInput from './ChatInput.vue'
+
+const chatStore = useChatStore()
+const { messages, loading, sendMessage } = storeToRefs(chatStore)
+</script>
+
+🔹 핵심 포인트
+
+service
+
+순수 데이터 처리/비즈니스 로직
+
+Vue 의존성 없음
+
+테스트가 가장 쉬움
+
+composables
+
+UI와 반응형 상태 관리
+
+service 호출 포함 가능
+
+컴포넌트에서 바로 재사용
+
+store + composable 조합
+
+전역 상태 필요 시 Pinia store에서 composable 재사용
+
+Remote 단위로 독립적 관리 가능
+
+이 구조를 쓰면 Module Federation Remote가 바로 배포 가능하며, Host에서 Lazy Load해서 사용해도 완벽히 동작합니다.
+
+원하시면 제가 Host + Remote + Module Federation 연결 + 실제 ChatGPT 스타일 메시지 UI까지 포함한 완전 동작 예제까지 만들어서 바로 실행 가능한 샘플로 제공할 수도 있습니다.
+
+이거 만들어 드릴까요?
+
+
+-----------------------------------------
+
+
 그럼 usecase 형식을 포함한 위 4가지 형식중 니가 추천하는것은?
 
 개발 중이신 기술 스택(Vue3, TS, Tailwind, Antd)과 **Module Federation(MF)**이라는 특수성, 그리고 LLM 채팅 앱이라는 도메인을 종합적으로 고려했을 때, 제가 가장 추천하는 방식은 1번: DDD(Domain-Driven Design) 기반의 기능 중심 구조입니다.
