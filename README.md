@@ -1,3 +1,213 @@
+📦 디렉토리 구조
+src/
+├── shared/
+│   ├── constants/
+│   │     └── api.constant.ts
+│   └── lib/
+│         └── http.ts
+│
+├── domains/
+│   └── user/
+│        ├── user.type.ts
+│        ├── user.constant.ts
+│        ├── user.api.ts
+│        ├── user.service.ts
+│        ├── user.store.ts
+│        └── index.ts
+│
+└── pages/
+     └── UserPage.vue
+
+1️⃣ shared – 공용 http / 상수
+✅ shared/constants/api.constant.ts
+export const API_BASE_URL = '/api'
+
+✅ shared/lib/http.ts
+import axios from 'axios'
+import { API_BASE_URL } from '@/shared/constants/api.constant'
+
+export const http = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  withCredentials: true,
+})
+
+http.interceptors.response.use(
+  res => res,
+  err => {
+    console.error('[API ERROR]', err)
+    return Promise.reject(err)
+  },
+)
+
+2️⃣ user 도메인
+✅ domains/user/user.type.ts
+export interface User {
+  id: string
+  name: string
+  email: string
+}
+
+✅ domains/user/user.constant.ts
+export const USER_STATUS = {
+  ACTIVE: 'ACTIVE',
+  BLOCKED: 'BLOCKED',
+} as const
+
+✅ domains/user/user.api.ts
+
+👉 서버 통신만
+
+import { http } from '@/shared/lib/http'
+import type { User } from './user.type'
+
+export function fetchMeApi() {
+  return http.get<User>('/users/me')
+}
+
+✅ domains/user/user.service.ts
+
+👉 비즈니스 / 정책 / 가공
+
+import { fetchMeApi } from './user.api'
+import type { User } from './user.type'
+
+export async function fetchMeService(): Promise<User> {
+  const { data } = await fetchMeApi()
+
+  // 여기서 데이터 가공, 정책 처리
+  return {
+    ...data,
+    name: data.name.trim(),
+  }
+}
+
+✅ domains/user/user.store.ts
+
+👉 상태 + 자동 초기화
+
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import type { User } from './user.type'
+import { fetchMeService } from './user.service'
+
+export const useUserStore = defineStore('user', () => {
+  const user = ref<User | null>(null)
+  const loading = ref(false)
+  const initialized = ref(false)
+
+  const init = async () => {
+    if (initialized.value) return
+
+    loading.value = true
+    try {
+      user.value = await fetchMeService()
+      initialized.value = true
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // ✅ store 최초 생성 시 자동 실행
+  if (import.meta.env.SSR === false) {
+    init()
+  }
+
+  return {
+    user,
+    loading,
+    init,
+  }
+})
+
+
+✔ 특징
+
+store import → 자동 fetch
+
+중복 호출 방지
+
+service/api 완전 분리
+
+✅ domains/user/index.ts
+export * from './user.store'
+export * from './user.type'
+export * from './user.constant'
+
+3️⃣ Page
+✅ pages/UserPage.vue
+<script setup lang="ts">
+import { storeToRefs } from 'pinia'
+import { useUserStore } from '@/domains/user'
+
+const userStore = useUserStore()
+const { user, loading } = storeToRefs(userStore)
+</script>
+
+<template>
+  <div class="p-6">
+    <h1 class="text-xl font-bold mb-4">User Page</h1>
+
+    <div v-if="loading">Loading...</div>
+
+    <div v-else-if="user" class="space-y-2">
+      <div><b>ID:</b> {{ user.id }}</div>
+      <div><b>Name:</b> {{ user.name }}</div>
+      <div><b>Email:</b> {{ user.email }}</div>
+    </div>
+
+    <div v-else>
+      No user data
+    </div>
+  </div>
+</template>
+
+
+✔ Page는
+
+api 모름
+
+service 모름
+
+store만 앎
+
+UI에만 집중
+
+🔥 이 구조의 핵심 가치
+✅ 레이어 책임 완전 분리
+레이어	책임
+api	서버 통신
+service	비즈니스 규칙 / 가공
+store	상태 / 캐싱 / 동기화
+page	UI
+✅ Module Federation에 매우 적합
+
+remote expose → user.store.ts, user.service.ts
+
+계약 변경 → user.type.ts, user.constant.ts
+
+공통화 → shared/constants, shared/lib
+
+✅ 유지보수성
+
+API 바뀌면 → api/service만 수정
+
+상태 정책 바뀌면 → store만 수정
+
+UI 바뀌면 → page만 수정
+
+🏁 한 줄 요약
+
+👉 이 구조는 “실제 운영 서비스에서 오래 써먹는 구조” 입니다.
+👉 composable이 store를 감싸는 일도 없고, domain이 Vue에 오염되지도 않습니다.
+
+원하면 다음 단계로는
+🔥 로그인/토큰/권한 구조까지 포함한 user 도메인 실전 설계
+🔥 Module Federation에서 user 도메인 expose 전략
+도 같이 짜드릴게요.
+
+----------------------------------------------------------------------------
+
 그럼 바로 Remote Chat Feature에서 service와 composables를 분리하여 적용한 예제 구조를 만들어드릴게요.
 
 1️⃣ 디렉터리 구조
