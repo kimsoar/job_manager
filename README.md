@@ -1,3 +1,11 @@
+@click="focusInput"
+
+const focusInput = () => {
+  textareaRef.value?.focus();
+};
+
+
+
 CREATE TABLE conversation (
     id UUID PRIMARY KEY,                 -- UUID v7
     user_id BIGINT NOT NULL,
