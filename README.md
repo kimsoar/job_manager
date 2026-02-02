@@ -1,3 +1,14 @@
+
+a-input focus
+
+const textareaRef = ref<HTMLTextAreaElement | null>(null);
+
+
+const focusInput = () => {
+  textareaRef.value?.focus();
+};
+----------
+
 @click="focusInput"
 
 const focusInput = () => {
