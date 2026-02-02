@@ -1,3 +1,312 @@
+CREATE TABLE conversation (
+    id UUID PRIMARY KEY,                 -- UUID v7
+    user_id BIGINT NOT NULL,
+
+    title VARCHAR(255) NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    
+    last_message_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    message_count INT NOT NULL DEFAULT 0,
+
+    pinned BOOLEAN NOT NULL DEFAULT false,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+
+    model VARCHAR(50),
+    temperature FLOAT,
+    metadata JSONB,
+)
+WITH (
+    orientation = row,   
+)
+DISTRIBUTED BY (id);
+
+CREATE INDEX idx_conv_user_lastmsg
+ON conversation (user_id, last_message_at DESC);
+
+
+
+SELECT *
+FROM conversation
+WHERE user_id = ?
+AND is_deleted = false
+ORDER BY last_message_at DESC
+LIMIT 20;
+
+👉 O(logN) + 매우 빠름
+
+
+
+
+CREATE TABLE message (
+    id UUID PRIMARY KEY,   -- uuid v7
+
+    conversation_id UUID NOT NULL,
+    user_id BIGINT NOT NULL, -- conversation에 사용자 id가 존재... 필요??
+
+    role VARCHAR(20) NOT NULL,      -- user / assistant / system
+    content TEXT NOT NULL,
+
+    status VARCHAR(20) DEFAULT 'done',  -- streaming / done / error
+
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    metadata JSONB,
+)
+WITH (
+    appendonly = true,    
+    orientation = row,    
+    compresstype = zstd,
+    compresslevel = 3
+)
+DISTRIBUTED BY (conversation_id);  
+
+-- 대화방 메시지 조회 (핵심)
+CREATE INDEX idx_msg_conv_created
+ON message (conversation_id, created_at);
+
+
+이 쿼리가 초고속 됨
+SELECT *
+FROM message
+WHERE conversation_id = ?
+ORDER BY created_at
+LIMIT 50;
+
+
+------------------------------------------------------------
+
+pip install uuid6
+
+from uuid6 import uuid7
+
+msg_id = uuid7()
+
+
+
+------------------------------------------------------------
+
+==================================================================
+🔥 3️⃣ FastAPI Snowflake Generator (실무용)
+
+복붙해서 바로 사용 가능
+
+# snowflake.py
+import time
+import threading
+
+class Snowflake:
+    def __init__(self, worker_id: int):
+        self.worker_id = worker_id & 0x3FF
+        self.sequence = 0
+        self.last_ts = -1
+        self.lock = threading.Lock()
+
+    def _timestamp(self):
+        return int(time.time() * 1000)
+
+    def generate(self):
+        with self.lock:
+            ts = self._timestamp()
+
+            if ts == self.last_ts:
+                self.sequence = (self.sequence + 1) & 0xFFF
+                if self.sequence == 0:
+                    while ts <= self.last_ts:
+                        ts = self._timestamp()
+            else:
+                self.sequence = 0
+
+            self.last_ts = ts
+
+            return ((ts << 22) |
+                    (self.worker_id << 12) |
+                    self.sequence)
+
+
+snowflake = Snowflake(worker_id=1)
+
+
+
+사용:
+msg_id = snowflake.generate()
+
+
+
+
+✅ API 설계 (실무형)
+1️⃣ 최초 로딩 (최신 N개)
+요청
+GET /conversations/{id}/messages?limit=50
+
+SQL
+SELECT *
+FROM message
+WHERE conversation_id = :cid
+ORDER BY created_at DESC
+LIMIT 50;
+
+서버에서 reverse 해서 반환
+
+(오래된 → 최신 순서로 UI가 보기 편함)
+
+2️⃣ 과거 메시지 더 보기 (무한 스크롤 ↑)
+요청
+GET /conversations/{id}/messages?before=2026-02-01T12:00:00&limit=50
+
+SQL
+SELECT *
+FROM message
+WHERE conversation_id = :cid
+AND created_at < :cursor
+ORDER BY created_at DESC
+LIMIT 50;
+
+왜 DESC 후 reverse?
+
+이유:
+
+인덱스 타기 쉬움
+
+최신 기준 빠름
+
+패턴:
+
+DB: DESC LIMIT 50
+서버: reverse()
+클라이언트: prepend
+
+
+👉 가장 빠름
+
+3️⃣ 신규 메시지 가져오기 (실시간/폴링)
+요청
+GET /conversations/{id}/messages?after=2026-02-01T12:00:00
+
+SQL
+SELECT *
+FROM message
+WHERE conversation_id = :cid
+AND created_at > :cursor
+ORDER BY created_at;
+
+
+👉 아래 append
+
+✅ 최종 API 스펙 (추천)
+GET messages
+GET /conversations/{conversation_id}/messages
+
+Query
+param	의미
+limit	개수 (default 50)
+before	과거 페이지
+after	신규 페이지
+규칙
+
+before, after 둘 중 하나만 사용
+
+둘 다 없으면 최신
+
+✅ FastAPI 예시 코드
+router
+@router.get("/conversations/{cid}/messages")
+async def get_messages(
+    cid: UUID,
+    limit: int = 50,
+    before: datetime | None = None,
+    after: datetime | None = None,
+):
+
+쿼리 로직
+query = select(Message).where(Message.conversation_id == cid)
+
+if before:
+    query = query.where(Message.created_at < before)\
+                 .order_by(Message.created_at.desc())
+elif after:
+    query = query.where(Message.created_at > after)\
+                 .order_by(Message.created_at.asc())
+else:
+    query = query.order_by(Message.created_at.desc())
+
+query = query.limit(limit)
+
+rows = (await session.execute(query)).scalars().all()
+
+if not after:
+    rows.reverse()
+
+return rows
+
+
+깔끔 👍
+
+🔥 프론트(Vue) 구현 패턴
+상태
+const messages = ref<Message[]>([])
+const cursor = ref<Date | null>(null)
+
+과거 로딩
+const loadOlder = async () => {
+  const res = await api.get({ before: cursor.value })
+  messages.value = [...res, ...messages.value]
+  cursor.value = res[0]?.created_at
+}
+
+신규 로딩
+
+websocket or polling:
+
+after = lastMessage.created_at
+
+🔥 성능 요약
+방식	속도
+offset	❌ 느림 (O(N))
+cursor(created_at)	✅ 빠름 (O(logN))
+
+👉 무조건 cursor
+
+✅ 실무 꿀팁 3개
+1️⃣ limit 50~100 추천
+
+너무 크면 렌더 느림
+
+2️⃣ created_at + id 같이 쓰면 더 안전
+
+동일 timestamp 충돌 방지
+
+ORDER BY created_at, id
+
+3️⃣ websocket + cursor 혼합이 베스트
+
+과거 → API
+
+신규 → websocket push
+
+ChatGPT 방식 그대로
+
+🔥 최종 한 줄
+
+👉 채팅 앱 = 무조건 cursor pagination
+
+before / after + created_at index
+
+
+이게 정답 공식.
+
+원하면 다음 단계
+👉 “읽음 표시(unread count) 설계”
+👉 “streaming 응답 저장 방식”
+👉 “WebSocket 구조”
+이런 것도 이어서 설계해볼까? 😄
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+
 📦 디렉토리 구조
 src/
 ├── shared/
