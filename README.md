@@ -4,6 +4,24 @@ const focusInput = () => {
   textareaRef.value?.focus();
 };
 
+✅ 핵심 포인트 설명
+⭐ wrapper 클릭
+@click="focusInput"
+
+⭐ textarea 내부는 stop
+@click.stop
+
+
+→ textarea 클릭 시 wrapper 이벤트 막음
+
+⭐ 버튼도 stop
+@click.stop
+
+
+→ 버튼 눌렀을 때 focus 튀는 것 방지
+
+-------------------------------------------------
+
 
 
 CREATE TABLE conversation (
