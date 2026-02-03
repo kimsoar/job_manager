@@ -1,3 +1,72 @@
+modules/
+ └─ chat/
+     ├─ router.py      # chat 전체 router 통합
+     ├─ deps.py
+     ├─ domain/        # 공통 모델/엔티티
+     │   ├─ models.py
+     │   ├─ schemas.py
+     │   └─ repository.py
+     │
+     ├─ features/      ⭐ 핵심
+     │   ├─ message/
+     │   │   ├─ router.py
+     │   │   ├─ service.py
+     │   │   ├─ schemas.py
+     │   │   └─ repository.py
+     │   │
+     │   ├─ room/
+     │   ├─ reaction/
+     │   ├─ attachment/
+     │   ├─ streaming/
+     │   └─ summary/
+     │
+     └─ services/ (선택)
+
+
+backend/
+│
+├─ app/
+│   ├─ main.py                # FastAPI entry
+│   ├─ core/                 # 공통 인프라
+│   │   ├─ config.py
+│   │   ├─ security.py
+│   │   ├─ database.py
+│   │   ├─ deps.py
+│   │   ├─ middleware.py
+│   │   └─ logging.py
+│   │
+│   ├─ common/               # 모든 앱 공통 도메인
+│   │   ├─ models/
+│   │   ├─ schemas/
+│   │   ├─ services/
+│   │   └─ utils/
+│   │
+│   ├─ modules/              # ⭐ 핵심 (frontend remote 대응)
+│   │   ├─ chat/
+│   │   │   ├─ router.py
+│   │   │   ├─ service.py
+│   │   │   ├─ repository.py
+│   │   │   ├─ models.py
+│   │   │   ├─ schemas.py
+│   │   │   └─ usecases/
+│   │   │
+│   │   ├─ auth/
+│   │   ├─ file/
+│   │   ├─ notification/
+│   │   └─ analytics/
+│   │
+│   ├─ plugins/              # 선택: 동적 로딩용
+│   │
+│   └─ api/
+│       └─ router.py         # 모든 module router 등록
+│
+├─ tests/
+├─ alembic/
+└─ requirements.txt
+
+
+
+
 
 a-input focus
 
