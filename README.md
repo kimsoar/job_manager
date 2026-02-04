@@ -1,3 +1,332 @@
+module federation에서 axiosInstance를 공유 해주고 있는데
+baseurl을 api호출시 변경해야해.
+공유해주는 Instance는 그대로 사용하고 api호출 할 axiosInstance가 필요한데
+공유된 axiosInstance의 Header를 그대로 사용하고 싶은데 방법이 있을까?
+
+오 이거 Module Federation + axios 공유 할 때 한 번쯤 꼭 겪는 케이스 👍
+"인스턴스는 공유하지만 baseURL은 요청마다 바꾸고 싶다 + 헤더/인터셉터는 그대로 쓰고 싶다" 딱 이거지?
+
+👉 핵심은 “clone(복제)” 또는 “per-request override” 야.
+굳이 새로 다 만들 필요 없음.
+
+아래 3가지 방법 중 하나 쓰면 깔끔하게 해결돼.
+
+✅ 가장 쉬운 방법 (추천 ⭐)
+1️⃣ 요청 단위로 baseURL override
+
+axios는 요청 config가 instance 설정보다 우선이야.
+
+즉 그냥 이렇게 쓰면 끝.
+
+axiosInstance.get('/users', {
+  baseURL: 'https://other-api.com'
+})
+
+
+또는
+
+axiosInstance({
+  url: '/users',
+  method: 'get',
+  baseURL: 'https://other-api.com'
+})
+
+장점
+
+interceptor 그대로 사용됨
+
+header 그대로 사용됨
+
+추가 인스턴스 생성 X
+
+코드 가장 단순
+
+단점
+
+매 요청마다 baseURL 넣어야 함
+
+👉 가끔 바꾸는 경우 = 이게 베스트
+
+✅ 실무에서 제일 많이 쓰는 패턴
+2️⃣ 기존 instance 기반으로 "복제 instance" 만들기 (강력 추천 ⭐⭐⭐)
+
+axios는 defaults를 복사해서 새 인스턴스 만들 수 있어.
+
+import axiosInstance from '@/shared/axios'
+
+export function createApiClient(baseURL: string) {
+  const newInstance = axios.create({
+    ...axiosInstance.defaults,
+    baseURL
+  })
+
+  // interceptors 복사
+  axiosInstance.interceptors.request.handlers.forEach(h => {
+    newInstance.interceptors.request.use(h.fulfilled, h.rejected)
+  })
+
+  axiosInstance.interceptors.response.handlers.forEach(h => {
+    newInstance.interceptors.response.use(h.fulfilled, h.rejected)
+  })
+
+  return newInstance
+}
+
+
+사용:
+
+const otherApi = createApiClient('https://other-api.com')
+
+otherApi.get('/users')
+
+장점
+
+✅ header 유지
+✅ interceptor 유지
+✅ baseURL 고정 가능
+✅ api domain 별 client 분리 가능
+✅ 실무/대형 프로젝트 패턴
+
+구조 추천 (너 프로젝트 스타일에 맞춤)
+
+(너 Vue3 + MF + service layer 쓰니까)
+
+shared/
+  axiosInstance.ts
+
+modules/
+  user/
+    api.ts
+  admin/
+    api.ts
+
+api.ts
+import { createApiClient } from '@/shared/http'
+
+const api = createApiClient(import.meta.env.VITE_ADMIN_API)
+
+export const getUsers = () => api.get('/users')
+
+
+👉 이렇게 하면 module별 baseURL 분리 + 공통 인증 유지 가능
+
+이게 MFE 구조에서 제일 깔끔함
+
+❌ 비추천
+3️⃣ header 수동 복사
+axios.create({
+  headers: axiosInstance.defaults.headers
+})
+
+
+이건 interceptor 빠져서 인증/refresh 토큰 깨질 확률 높음
+→ 실무에서 사고 많이 남
+
+쓰지마 😅
+
+🔥 내 추천 결론 (너 상황 기준)
+
+너가
+
+module federation
+
+여러 remote app
+
+axios 공유
+
+service 구조 사용
+
+👉 2번 패턴 (clone factory) 가 베스트
+
+왜냐면:
+
+module마다 api domain 다름
+
+코드 깔끔
+
+유지보수 쉬움
+
+테스트 편함
+
+필요하면
+👉 "인터셉터 자동 복사 util"
+👉 "token refresh 포함 axios 아키텍처"
+👉 "MFE에서 http 계층 설계 베스트 구조"
+
+이런 것도 더 깊게 설계해 줄까?
+(지금 구조 꽤 프로덕션급으로 가는 느낌이라 제대로 잡아두면 3년은 편함 😄)
+
+그래 그리고 axiosInstance 요청시 마다 accessToken, refreshToken 새로 셋팅해야할수 있어
+
+오케이 👍
+이건 딱 “토큰이 매 요청마다 바뀔 수 있는 구조” + “Module Federation 공유 axios” 조합이네.
+
+이 경우는 절대 header를 고정 세팅하면 안 되고,
+👉 request interceptor에서 ‘동적으로 주입’ 해야 돼.
+
+(토큰을 defaults.headers에 넣는 순간 지옥 시작 😇)
+
+🔥 정답 패턴 (실무 표준)
+✅ 핵심 원칙 2개
+1️⃣ 토큰을 instance에 저장 ❌
+axiosInstance.defaults.headers.Authorization = ...
+
+
+👉 ❌ 이렇게 하면 토큰 갱신 때 꼬임
+
+2️⃣ 요청 직전에 매번 꺼내서 넣기 ✅
+
+👉 request interceptor 사용
+
+✅ 베스트 구조 (강력 추천)
+
+너 구조에 맞춰 깔끔하게 설계해줄게
+(Vue3 + MF + service layer 기준)
+
+📁 shared/http/tokenStore.ts
+
+👉 토큰은 axios가 아니라 "store"에서 관리
+
+let accessToken: string | null = null
+let refreshToken: string | null = null
+
+export const tokenStore = {
+  set(at: string, rt: string) {
+    accessToken = at
+    refreshToken = rt
+  },
+  getAccess() {
+    return accessToken
+  },
+  getRefresh() {
+    return refreshToken
+  },
+  clear() {
+    accessToken = null
+    refreshToken = null
+  }
+}
+
+
+※ Pinia 써도 되고, 이렇게 싱글톤 써도 OK
+
+📁 shared/http/axiosInstance.ts
+import axios from 'axios'
+import { tokenStore } from './tokenStore'
+
+export const axiosInstance = axios.create({
+  timeout: 10000
+})
+
+axiosInstance.interceptors.request.use((config) => {
+  const at = tokenStore.getAccess()
+  const rt = tokenStore.getRefresh()
+
+  if (at) {
+    config.headers.Authorization = `Bearer ${at}`
+  }
+
+  if (rt) {
+    config.headers['x-refresh-token'] = rt
+  }
+
+  return config
+})
+
+💡 포인트
+
+✔ 요청할 때마다 최신 토큰 자동 주입
+✔ instance 공유해도 항상 최신
+✔ header 수동 세팅 필요 없음
+✔ MFE에서도 안전
+
+✅ baseURL 변경 + header 유지 (같이 쓰기)
+
+아까 말한 clone factory랑 합치면 👇
+
+📁 shared/http/createClient.ts
+import axios from 'axios'
+import { axiosInstance } from './axiosInstance'
+
+export function createApiClient(baseURL: string) {
+  const client = axios.create({
+    ...axiosInstance.defaults,
+    baseURL
+  })
+
+  // interceptor 복사
+  axiosInstance.interceptors.request.handlers.forEach(h => {
+    client.interceptors.request.use(h.fulfilled, h.rejected)
+  })
+
+  axiosInstance.interceptors.response.handlers.forEach(h => {
+    client.interceptors.response.use(h.fulfilled, h.rejected)
+  })
+
+  return client
+}
+
+✅ 사용 예 (module 별)
+const adminApi = createApiClient('/admin-api')
+const chatApi = createApiClient('/chat-api')
+
+adminApi.get('/users')
+chatApi.post('/messages')
+
+
+토큰?
+👉 자동 주입됨 (신경 X)
+
+🔥 실무 꿀팁 (중요 ⭐⭐⭐)
+❌ 절대 하지마
+axiosInstance.defaults.headers.Authorization = token
+
+
+→ refresh 후에도 예전 토큰 계속 사용 (버그 100%)
+
+✅ 반드시 이렇게
+tokenStore.set(newAT, newRT)
+
+
+→ interceptor가 알아서 반영
+
+🎯 결론 (너한테 딱 맞는 아키텍처)
+
+너 현재 스택:
+
+Module Federation
+
+Vue3 + Pinia
+
+공통 axios 공유
+
+domain별 api 분리
+
+👉 최적 설계는
+
+tokenStore (전역)
+   ↓
+axiosInstance (interceptor에서 동적 header)
+   ↓
+createApiClient(baseURL)
+   ↓
+module api
+
+
+이게 대기업/프로덕션 표준 패턴이야.
+
+원하면 다음 단계도 도와줄 수 있어:
+✅ refresh token 자동 재발급 interceptor
+✅ 401 큐잉 처리 (동시 요청 race 방지)
+✅ axios retry 설계
+✅ MFE 간 토큰 공유 전략
+
+필요하면 말해줘 — 이거 설계 제대로 하면 진짜 스트레스 0 됨 😄
+
+
+======================================================================
+
+
 modules/
  └─ chat/
      ├─ router.py      # chat 전체 router 통합
