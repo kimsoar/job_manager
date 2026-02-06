@@ -1,3 +1,15 @@
+watch(
+  () => router.currentRoute.value.params.id,
+  (newId, oldId) => {
+    callback({
+      newId: newId ?? null,
+      oldId: oldId ?? null,
+      exists: !!newId
+    })
+  }
+)
+
+
 useRouteIdWatcher((id) => {
   console.log('changed:', id)
 })
