@@ -1,3 +1,19 @@
+
+import { watch } from 'vue'
+import { router } from 'host'
+
+export function useRouteIdWatcher(callback: (id: string) => void) {
+  watch(
+    () => router.currentRoute.value.params.id,
+    (id) => {
+      if (id) callback(String(id))
+    },
+    { immediate: true }
+  )
+}
+
+
+
 deps에서 class를 넘겨줄때 매번 새로운 클래스를 생성해서 di해주는거니
 
 좋은 질문이다 👍
