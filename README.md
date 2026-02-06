@@ -1,4 +1,13 @@
 watch(
+  () => router.currentRoute.value.fullPath,
+  () => {
+    const id = router.currentRoute.value.params.id ?? null
+    callback(id)
+  },
+  { immediate: true }
+)
+
+watch(
   () => router.currentRoute.value.params.id,
   (newId, oldId) => {
     callback({
