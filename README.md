@@ -1,3 +1,7 @@
+useRouteIdWatcher((id) => {
+  console.log('changed:', id)
+})
+
 
 import { watch } from 'vue'
 import { router } from 'host'
