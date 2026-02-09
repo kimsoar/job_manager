@@ -1,3 +1,35 @@
+import contextvars
+import uuid
+
+trace_id_ctx = contextvars.ContextVar("trace_id", default=None)
+
+
+def set_trace_id():
+    tid = str(uuid.uuid4())
+    trace_id_ctx.set(tid)
+    return tid
+
+
+def get_trace_id():
+    return trace_id_ctx.get()
+
+
+
+
+
+
+
+class TraceMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        tid = set_trace_id()
+        response = await call_next(request)
+        response.headers["X-Trace-Id"] = tid
+        return response
+
+
+
+
+
 from typing import Generic, TypeVar
 from pydantic import BaseModel
 
