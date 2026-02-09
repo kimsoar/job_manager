@@ -4,6 +4,135 @@ from pydantic import BaseModel
 T = TypeVar("T")
 
 
+class ErrorResponse(BaseModel):
+    code: str
+    message: str
+    trace_id: str | None = None
+
+
+class ApiResponse(BaseModel, Generic[T]):
+    success: bool
+    data: T | None = None
+    error: ErrorResponse | None = None
+
+
+
+from app.common.schemas import ApiResponse, ErrorResponse
+from app.common.trace import get_trace_id
+
+
+def ok(data=None):
+    return ApiResponse(success=True, data=data)
+
+
+def fail(code: str, message: str):
+    return ApiResponse(
+        success=False,
+        error=ErrorResponse(
+            code=code,
+            message=message,
+            trace_id=get_trace_id(),
+        ),
+    )
+
+
+from fastapi import HTTPException
+
+
+class AppException(HTTPException):
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        status_code: int = 400,
+    ):
+        self.code = code
+        self.message = message
+        super().__init__(status_code=status_code, detail=message)
+
+
+
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from app.common.response import fail
+from app.common.trace import get_trace_id
+
+
+def register_exception_handlers(app):
+
+    # ⭐ 404/405 포함 HTTP 에러
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request, exc):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=fail(
+                code="HTTP_ERROR",
+                message=exc.detail or "HTTP error",
+            ).model_dump(),
+        )
+
+    # ⭐ 우리가 던지는 비즈니스 에러
+    @app.exception_handler(AppException)
+    async def app_exception_handler(request, exc: AppException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=fail(
+                code=exc.code,
+                message=exc.message,
+            ).model_dump(),
+        )
+
+    # ⭐ 500
+    @app.exception_handler(Exception)
+    async def all_exception_handler(request, exc):
+        return JSONResponse(
+            status_code=500,
+            content=fail(
+                code="INTERNAL_SERVER_ERROR",
+                message="Unexpected server error",
+            ).model_dump(),
+        )
+
+
+
+from app.common.exceptions import AppException
+
+
+async def get_room(room_id: int):
+    room = await repo.find(room_id)
+
+    if not room:
+        raise AppException(
+            code="ROOM_NOT_FOUND",
+            message="Room not found",
+            status_code=404,
+        )
+
+    return room
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from typing import Generic, TypeVar
+from pydantic import BaseModel
+
+T = TypeVar("T")
+
+
 class ApiResponse(BaseModel, Generic[T]):
     success: bool = True
     data: T | None = None
