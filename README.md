@@ -1,3 +1,46 @@
+import json
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from common.utils import async_iter
+
+
+class ApiResponseMiddleware(BaseHTTPMiddleware):
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        content_type = response.headers.get("content-type", "")
+
+        if "application/json" not in content_type:
+            return response
+
+        body = b"".join([chunk async for chunk in response.body_iterator])
+        data = json.loads(body) if body else None
+
+        # 이미 ApiResponse면 그대로 통과
+        if isinstance(data, dict) and "success" in data:
+            response.body_iterator = async_iter(body)
+            return response
+
+        success = response.status_code < 400  # ⭐ 핵심 수정
+
+        wrapped = {
+            "success": success,
+            "data": data if success else None,
+            "error": None if success else data,
+            "trace_id": getattr(request.state, "trace_id", None),
+        }
+
+        new_body = json.dumps(wrapped).encode()
+
+        return JSONResponse(
+            content=wrapped,
+            status_code=response.status_code,
+        )
+
+
+
 watch(
   () => router.currentRoute.value.fullPath,
   () => {
