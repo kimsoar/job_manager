@@ -1,3 +1,79 @@
+from typing import Generic, TypeVar
+from pydantic import BaseModel
+
+T = TypeVar("T")
+
+
+class ApiResponse(BaseModel, Generic[T]):
+    success: bool = True
+    data: T | None = None
+    error: str | None = None
+
+
+
+from app.common.schemas import ApiResponse
+
+
+def ok(data=None):
+    return ApiResponse(success=True, data=data)
+
+
+def fail(msg: str):
+    return ApiResponse(success=False, error=msg)
+
+
+from fastapi import HTTPException
+from fastapi.responses import JSONResponse
+from app.common.schemas import ApiResponse
+
+
+class AppException(HTTPException):
+    def __init__(self, msg: str, status_code=400):
+        super().__init__(status_code=status_code, detail=msg)
+
+
+def register_exception_handlers(app):
+
+    @app.exception_handler(AppException)
+    async def app_exc_handler(request, exc):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=ApiResponse(success=False, error=exc.detail).model_dump(),
+        )
+
+    @app.exception_handler(Exception)
+    async def all_exc_handler(request, exc):
+        return JSONResponse(
+            status_code=500,
+            content=ApiResponse(success=False, error="Internal Server Error").model_dump(),
+        )
+
+
+from fastapi import APIRouter, Depends
+from app.common.response import ok
+from app.common.schemas import ApiResponse
+
+from .schemas import CreateRoomRequest, RoomResponse
+from .deps import get_room_service
+
+router = APIRouter()
+
+
+@router.post(
+    "/rooms",
+    response_model=ApiResponse[RoomResponse],
+)
+async def create_room(
+    req: CreateRoomRequest,
+    service = Depends(get_room_service),
+):
+    room = await service.create_room(req.name)
+    return ok(room)
+
+
+
+
+
 # common/middleware/api_response.py
 
 import json
