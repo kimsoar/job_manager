@@ -1,3 +1,46 @@
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse, StreamingResponse
+import json
+
+
+class ApiResponseMiddleware(BaseHTTPMiddleware):
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+
+        # 🔥 streaming은 무조건 pass
+        if isinstance(response, StreamingResponse):
+            return response
+
+        content_type = response.headers.get("content-type", "")
+
+        if "application/json" not in content_type:
+            return response
+
+        # 🔥 body_iterator 절대 읽지 말 것
+        body = response.body
+
+        if not body:
+            return response
+
+        try:
+            data = json.loads(body)
+        except:
+            return response
+
+        wrapped = {
+            "success": response.status_code < 400,
+            "data": data,
+        }
+
+        return JSONResponse(
+            content=wrapped,
+            status_code=response.status_code
+        )
+
+
+
+
 import json
 from fastapi import Request
 from fastapi.responses import JSONResponse
