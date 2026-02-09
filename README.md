@@ -93,6 +93,33 @@ export function useChatStream() {
 
 
 
+<script setup lang="ts">
+import { ref } from "vue"
+import { useChatStream } from "./useChatStream"
+
+const input = ref("")
+const { message, streaming, start } = useChatStream()
+
+const send = () => {
+  start(1, input.value)
+}
+</script>
+
+<template>
+  <div>
+    <textarea v-model="input" />
+
+    <button @click="send" :disabled="streaming">
+      Send
+    </button>
+
+    <pre>{{ message }}</pre>
+  </div>
+</template>
+
+
+
+
 import contextvars
 import uuid
 
