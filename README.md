@@ -1,3 +1,46 @@
+# common/middleware/api_response.py
+import json
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse, StreamingResponse
+
+
+class ApiResponseMiddleware(BaseHTTPMiddleware):
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+
+        if isinstance(response, StreamingResponse):
+            return response
+
+        if "application/json" not in response.headers.get("content-type", ""):
+            return response
+
+        body = response.body
+        if not body:
+            return response
+
+        try:
+            data = json.loads(body)
+        except:
+            return response
+
+        wrapped = {
+            "success": response.status_code < 400,
+            "data": data,
+        }
+
+        new_resp = JSONResponse(
+            content=wrapped,
+            status_code=response.status_code,
+        )
+
+        new_resp.headers.update(response.headers)
+        return new_resp
+
+
+
+
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, StreamingResponse
 import json
