@@ -1,3 +1,98 @@
+// services/sse.ts
+
+export interface SSEOptions {
+  url: string
+  token?: string
+  onMessage: (data: string) => void
+  onError?: (err: any) => void
+  onDone?: () => void
+}
+
+export function createSSE({
+  url,
+  token,
+  onMessage,
+  onError,
+  onDone,
+}: SSEOptions) {
+
+  const es = new EventSource(url, {
+    withCredentials: true,
+  })
+
+  es.onmessage = (event) => {
+    const data = event.data
+
+    if (data === "[DONE]") {
+      onDone?.()
+      es.close()
+      return
+    }
+
+    onMessage(data)
+  }
+
+  es.onerror = (err) => {
+    es.close()
+    onError?.(err)
+  }
+
+  return {
+    close: () => es.close(),
+  }
+}
+
+useChatStream
+
+
+import { ref } from "vue"
+import { createSSE } from "@/services/sse"
+
+export function useChatStream() {
+  const streaming = ref(false)
+  const message = ref("")
+  let connection: { close: () => void } | null = null
+
+  const start = (roomId: number, question: string) => {
+    streaming.value = true
+    message.value = ""
+
+    const params = new URLSearchParams({
+      question,
+    })
+
+    connection = createSSE({
+      url: `/api/chat/rooms/${roomId}/stream?${params}`,
+
+      onMessage: (chunk) => {
+        message.value += chunk
+      },
+
+      onDone: () => {
+        streaming.value = false
+      },
+
+      onError: () => {
+        streaming.value = false
+      },
+    })
+  }
+
+  const stop = () => {
+    connection?.close()
+    streaming.value = false
+  }
+
+  return {
+    streaming,
+    message,
+    start,
+    stop,
+  }
+}
+
+
+
 import contextvars
 import uuid
 
