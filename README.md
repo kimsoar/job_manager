@@ -1,3 +1,246 @@
+✅ 최종 권장 폴더 구조 (확정판 ⭐)
+app/
+ ├─ core/
+ │   ├─ db.py
+ │   ├─ logger.py
+ │   └─ middleware/
+ │
+ ├─ common/
+ │   ├─ uow.py
+ │   └─ base_repo.py
+ │
+ ├─ modules/
+ │   └─ chat/
+ │       ├─ router.py          # chat 통합 router
+ │       ├─ deps.py
+ │       ├─ schemas.py         # 공통 DTO
+ │
+ │       ├─ repositories/
+ │       │   ├─ room_repo.py
+ │       │   ├─ message_repo.py
+ │       │   ├─ reaction_repo.py
+ │       │   └─ settings_repo.py
+ │
+ │       ├─ services/
+ │       │   ├─ room_service.py
+ │       │   ├─ message_service.py
+ │       │   ├─ reaction_service.py
+ │       │   └─ settings_service.py
+ │
+ │       └─ features/
+ │           ├─ streaming/
+ │           │    ├─ router.py
+ │           │    └─ service.py
+ │           ├─ reaction/
+ │           │    └─ router.py
+ │           └─ settings/
+ │                └─ router.py
+ │
+ └─ main.py
+
+✅ 네이밍 규칙 (공식)
+1️⃣ Router
+👉 HTTP 동사 ONLY
+create
+list
+get
+update
+delete
+
+2️⃣ Service
+👉 비즈니스 행동
+create_room
+send_message
+rename_room
+react
+stream_reply
+
+3️⃣ Repository
+👉 SQL 느낌 CRUD
+insert
+fetch_one
+fetch_many
+update
+delete
+exists
+
+🔥 이제 실제 코드 템플릿 (복붙 가능 버전)
+✅ room
+room_router.py
+@router.post("")
+async def create_room()
+
+@router.get("")
+async def list_rooms()
+
+@router.get("/{room_id}")
+async def get_room(room_id: str)
+
+@router.patch("/{room_id}/title")
+async def update_room_title(room_id: str)
+
+@router.delete("/{room_id}")
+async def delete_room(room_id: str)
+
+room_service.py
+class RoomService:
+
+    async def create_room(self, user_id: str, title: str)
+
+    async def list_rooms(self, user_id: str)
+
+    async def get_room(self, room_id: str)
+
+    async def rename_room(self, room_id: str, title: str)
+
+    async def delete_room(self, room_id: str)
+
+    async def touch_last_message(self, room_id: str)
+
+room_repo.py
+class RoomRepository:
+
+    async def insert(self, room: RoomCreate)
+
+    async def fetch_one(self, room_id: str)
+
+    async def fetch_many(self, user_id: str)
+
+    async def update_title(self, room_id: str, title: str)
+
+    async def update_last_message_at(self, room_id: str)
+
+    async def delete(self, room_id: str)
+
+✅ message
+message_router.py
+@router.post("")
+async def send_message()
+
+@router.get("/{room_id}/history")
+async def get_history()
+
+@router.get("/{room_id}/{message_id}")
+async def get_message()
+
+@router.delete("/{message_id}")
+async def delete_message()
+
+message_service.py
+class MessageService:
+
+    async def send_message(self, room_id: str, content: str)
+
+    async def create_assistant_reply(self, room_id: str)
+
+    async def stream_reply(self, room_id: str, message_id: str)
+
+    async def get_history(self, room_id: str, cursor: str | None)
+
+    async def delete_message(self, message_id: str)
+
+message_repo.py
+class MessageRepository:
+
+    async def insert(self, message: MessageCreate)
+
+    async def fetch_one(self, room_id: str, message_id: str)
+
+    async def fetch_history(self, room_id: str, cursor: str | None, limit: int)
+
+    async def update_content(self, message_id: str, content: str)
+
+    async def delete(self, message_id: str)
+
+✅ reaction
+reaction_router.py
+@router.post("")
+async def react()
+
+@router.delete("")
+async def remove_reaction()
+
+reaction_service.py
+class ReactionService:
+
+    async def react(self, message_id: str, user_id: str, type: str)
+
+    async def remove_reaction(self, message_id: str, user_id: str)
+
+    async def toggle_reaction(self, message_id: str, user_id: str, type: str)
+
+reaction_repo.py
+class ReactionRepository:
+
+    async def insert(self, reaction: ReactionCreate)
+
+    async def delete(self, message_id: str, user_id: str)
+
+    async def exists(self, message_id: str, user_id: str)
+
+✅ settings
+settings_router.py
+@router.get("")
+async def get_settings()
+
+@router.patch("")
+async def update_settings()
+
+settings_service.py
+class SettingsService:
+
+    async def get_settings(self, user_id: str)
+
+    async def update_settings(self, user_id: str, dto: SettingsUpdate)
+
+settings_repo.py
+class SettingsRepository:
+
+    async def fetch_one(self, user_id: str)
+
+    async def update(self, user_id: str, dto: SettingsUpdate)
+
+🎯 최종 핵심 정리
+✅ Router
+
+HTTP 의미
+
+create/list/get/update/delete
+
+✅ Service
+
+행동
+
+send_message
+rename_room
+react
+stream_reply
+
+✅ Repo
+
+DB
+
+insert/fetch/update/delete/exists
+
+🚀 효과
+
+이 규칙 쓰면:
+
+✅ 코드 읽기 속도 2배
+✅ 팀원 온보딩 쉬움
+✅ 함수명 고민 시간 0
+✅ 레이어 역할 100% 분리
+✅ CQRS 구조랑 완벽 궁합
+
+원하면 다음 단계로
+👉 "이 구조 기준 실제 FastAPI 전체 샘플 코드 세트 (router/service/repo 전부 구현본)"
+👉 or "파일 템플릿 자동 생성 스캐폴딩"
+
+어느 쪽 더 볼까? 😄
+
+------------------------------------------------------------
+
+---------------------
 오 좋다 👍
 지금 단계는 **“코드 스타일 통일 = 생산성 폭발 구간”**이야.
 
