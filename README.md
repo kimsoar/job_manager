@@ -1,3 +1,24 @@
+
+
+
+async def create_assistant_placeholder(self, room_id: int):
+    return await self.conn.fetchrow("""
+        INSERT INTO message (room_id, role, content)
+        VALUES ($1, 'assistant', '')
+        RETURNING id, role, content, created_at
+    """, room_id)
+
+
+async def finalize_message(self, message_id: int, text: str):
+    await self.conn.execute("""
+        UPDATE message
+        SET content = $1,
+            updated_at = now()
+        WHERE id = $2
+    """, text, message_id)
+
+
+
 import asyncio
 from datetime import datetime
 
