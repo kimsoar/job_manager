@@ -229,6 +229,963 @@ store → 상태
 👉 Pinia + SSE + streaming 최적화 템플릿
 
 어느 쪽 만들어줄까? 😄
+
+동일한 이슈로 front의 *.store.ts, *.serive.ts, *.api.ts 함수명 규칙도 필요해
+
+오 👍 이제 백엔드 네이밍 → 프론트 네이밍까지 통일 단계 왔네
+이거 맞추면 진짜…
+
+👉 풀스택 코드가 “한 덩어리처럼” 읽힘
+
+개발 속도 체감 2배 이상 올라감.
+
+🎯 목표
+
+지금 우리가 이미 만든 백엔드 규칙:
+
+Router   = HTTP
+Service  = Business
+Repo     = DB
+
+
+👉 프론트도 완전히 같은 철학으로 맞출 거야
+
+✅ 프론트 레이어 역할 먼저 정리
+
+Vue3 (Pinia + api + service 구조)
+
+보통:
+
+store   → 상태
+service → 비즈니스 로직
+api     → http 호출
+
+
+즉:
+
+레이어	역할	백엔드 대응
+store	상태관리	cache/view-model
+service	비즈니스 로직	service
+api	axios/http	router
+
+👉 1:1 매핑 가능 ⭐⭐⭐⭐⭐
+
+🔥 네이밍 핵심 원칙 (프론트)
+1️⃣ api.ts
+👉 "HTTP 동사 ONLY"
+
+백엔드 router랑 동일하게
+
+create
+list
+get
+update
+delete
+
+
+절대 비즈니스 단어 금지 ❌
+
+2️⃣ service.ts
+👉 "비즈니스 행동"
+
+백엔드 service랑 동일
+
+sendMessage
+renameRoom
+react
+streamReply
+
+3️⃣ store.ts
+👉 상태 중심
+set
+add
+remove
+clear
+patch
+append
+reset
+
+
+"행동" 말고 "상태 변경" 위주
+
+🎯 레이어별 규칙 확정
+✅ api.ts 규칙 (HTTP 전용)
+공식
+HTTP verb + resource
+
+room.api.ts
+createRoom()
+listRooms()
+getRoom()
+updateRoomTitle()
+deleteRoom()
+
+message.api.ts
+sendMessage()
+getHistory()
+getMessage()
+deleteMessage()
+
+reaction.api.ts
+addReaction()
+removeReaction()
+
+
+👉 axios 호출만 있음
+👉 절대 로직 X
+
+✅ service.ts 규칙 (비즈니스 행동 ⭐⭐⭐⭐⭐ 핵심)
+공식
+동사 + 도메인
+
+room.service.ts
+createRoom()
+loadRooms()
+renameRoom()
+deleteRoom()
+touchRoom()
+
+message.service.ts
+sendMessage()
+loadHistory()
+streamReply()
+deleteMessage()
+
+reaction.service.ts
+react()
+toggleReaction()
+removeReaction()
+
+
+👉 api 여러 개 조합 가능
+👉 store 호출 가능
+👉 진짜 "use-case"
+
+✅ store.ts 규칙 (상태 조작 ONLY)
+공식
+상태 동사 + 상태
+
+message.store.ts
+setMessages()
+addMessage()
+appendToken()
+updateMessage()
+removeMessage()
+clearMessages()
+
+room.store.ts
+setRooms()
+addRoom()
+updateRoom()
+removeRoom()
+touchRoom()
+
+
+👉 상태만 변경
+👉 비즈니스 로직 절대 금지 ❌
+
+🔥 실제 풀 플로우 예시 (🔥 이게 핵심)
+"메시지 전송" 흐름
+1️⃣ Component
+await messageService.sendMessage(roomId, text)
+
+2️⃣ service
+async function sendMessage(roomId, text) {
+  const res = await messageApi.sendMessage(roomId, text)
+  messageStore.addMessage(res.data)
+}
+
+3️⃣ api
+async function sendMessage(roomId, text) {
+  return axios.post(`/rooms/${roomId}/messages`, { text })
+}
+
+👉 레이어 역할 완벽 분리
+component → service → api
+                    ↓
+                 backend
+
+🔥 최종 네이밍 표 (복붙 저장 추천 ⭐)
+api
+create
+list
+get
+update
+delete
+
+service
+sendMessage
+loadHistory
+streamReply
+renameRoom
+react
+toggleReaction
+
+store
+set
+add
+remove
+update
+append
+clear
+reset
+
+🎯 네 프로젝트 기준 최종 파일 예시
+chat/
+ ├─ api/
+ │   ├─ room.api.ts
+ │   ├─ message.api.ts
+ │   └─ reaction.api.ts
+ │
+ ├─ services/
+ │   ├─ room.service.ts
+ │   ├─ message.service.ts
+ │   └─ reaction.service.ts
+ │
+ ├─ stores/
+ │   ├─ room.store.ts
+ │   └─ message.store.ts
+
+🚀 한 줄 정리
+api → HTTP
+service → 행동
+store → 상태
+
+이 규칙만 지키면
+
+👉 코드 읽기 스트레스 0
+👉 협업 쉬움
+👉 백/프론트 완벽 대칭
+👉 유지보수 지옥 탈출
+
+원하면 다음 단계로
+👉 실제 chat 프론트 전체 샘플 코드 (api/service/store 전부 구현본)
+👉 Pinia + SSE + streaming 최적화 템플릿
+
+어느 쪽 만들어줄까? 😄
+
+component → store→ service → api 이런구조로 하고 있었는데 별로야?
+
+오… 이 질문 진짜 좋다 👍
+이건 “프론트 아키텍처 성숙도” 갈리는 핵심 포인트야.
+
+결론부터 말하면 👇
+
+❌ component → store → service → api
+
+솔직히… 권장 안 함 (중장기적으로 꼬임 100%)
+
+✅ component → service → store (+ api)
+
+👉 이게 정석 + 대형 프로젝트 표준
+
+조금 솔직하게 말해볼게 😄
+지금 구조는 약간…
+
+“store가 너무 똑똑해진 구조”
+
+이거 나중에 반드시 터짐.
+
+🔥 왜 store → service 구조가 별로냐?
+❌ 문제 1 — store가 비대해짐 (God Store)
+
+지금 구조:
+
+component
+   ↓
+store
+   ↓
+service
+   ↓
+api
+
+
+그럼 store가:
+
+상태 관리
+
+비즈니스 로직
+
+api 호출 orchestration
+
+👉 3개 역할 다 먹음
+
+즉…
+
+❌ store가 service 역할까지 침범
+
+Pinia가 "미니 백엔드"가 돼버림
+
+실제로 생기는 일
+// message.store.ts
+async sendMessage() {
+  await messageService.sendMessage()
+  this.messages.push(...)
+}
+
+
+처음엔 괜찮아 보임
+
+근데…
+
+store 1000줄 넘어감
+
+테스트 어려움
+
+재사용 불가
+
+SSR/Node reuse 불가
+
+👉 리팩토링 지옥 🔥
+
+❌ 문제 2 — 레이어 책임 붕괴
+
+원래:
+
+레이어	역할
+store	상태
+service	비즈니스
+api	http
+
+근데 지금:
+
+레이어	실제 역할
+store	상태 + 비즈니스
+service	api wrapper
+
+👉 service가 껍데기 됨
+
+이거 냄새 심함 😅
+
+❌ 문제 3 — 재사용 불가능
+
+예:
+
+다른 page
+
+worker
+
+composable
+
+node script
+
+테스트 코드
+
+👉 service만 쓰고 싶은데
+
+지금 구조는 store 의존
+
+즉:
+
+service 단독 사용 ❌
+store 없으면 못씀 ❌
+
+
+이건 아키텍처적으로 매우 안 좋음
+
+✅ 정석 구조 (추천 ⭐⭐⭐⭐⭐)
+⭐ component → service → store
+흐름
+component
+   ↓
+service   ← 비즈니스 orchestration
+   ↓
+api
+   ↓
+store (상태 반영)
+
+service가 "지휘자" 역할
+
+👉 이게 핵심
+
+🔥 예시 비교
+❌ 현재 구조
+component
+store.sendMessage()
+
+store
+async sendMessage() {
+  const res = await service.sendMessage()
+  this.messages.push(res)
+}
+
+
+👉 store가 너무 많은 책임
+
+✅ 추천 구조
+component
+await messageService.sendMessage()
+
+service
+async function sendMessage(roomId, text) {
+  const res = await messageApi.sendMessage(roomId, text)
+  messageStore.addMessage(res.data)
+}
+
+store
+addMessage(msg) {
+  this.messages.push(msg)
+}
+
+
+👉 store = 순수 상태만 ⭐⭐⭐⭐⭐
+
+🔥 아키텍처 철학 차이
+❌ store 중심
+store = mini backend
+
+
+→ 점점 비대
+
+✅ service 중심
+service = use-case
+store = cache
+
+
+→ 확장성 최고
+
+이게 Clean Architecture / DDD / Hexagonal 스타일
+
+🎯 언제 store→service 써도 되냐?
+
+딱 1가지 케이스만 OK
+
+👉 초소형 프로젝트 (CRUD 3~4개)
+
+예:
+
+todo 앱
+
+메모장
+
+admin page
+
+이럴 땐 단순해서 괜찮음
+
+근데 너 지금:
+
+SSE streaming
+
+chat
+
+history
+
+cursor paging
+
+multi feature
+
+settings
+
+reactions
+
+👉 이미 중대형 앱
+
+store 중심 구조 → 100% 터짐 😅
+
+✅ 최종 추천 구조 (너 프로젝트 기준)
+component
+   ↓
+service (비즈니스)
+   ↓
+api (http)
+   ↓
+store (상태 반영)
+
+규칙
+component
+
+👉 service만 호출
+
+service
+
+👉 api + store 조합
+
+store
+
+👉 상태만
+
+api
+
+👉 axios만
+
+🚀 한 줄 결론
+
+store는 뇌가 아니라 "메모리"다
+
+똑똑해지면 망한다 😂
+
+원하면
+👉 지금 네 chat 구조 기준으로
+"service 중심 리팩토링 샘플 (message 전체 코드)"
+실제 코드로 깔끔하게 만들어줄까?
+
+그래
+
+좋아 😎
+그럼 지금 네 ChatGPT 스타일 앱 구조 기준으로 “실전용 프론트 전체 샘플” 깔끔하게 한 번에 정리해줄게.
+
+👉 목표
+component → service → api → store (state only)
+이 흐름을 실제 코드로 체감하게 만들어줄게.
+
+이거 그대로 복붙해서 써도 될 정도로 작성할게 👍
+
+✅ 최종 폴더 구조
+src/chat/
+ ├─ api/
+ │   ├─ room.api.ts
+ │   └─ message.api.ts
+ │
+ ├─ services/
+ │   ├─ room.service.ts
+ │   └─ message.service.ts
+ │
+ ├─ stores/
+ │   ├─ room.store.ts
+ │   └─ message.store.ts
+ │
+ ├─ sse/
+ │   └─ sse.service.ts
+ │
+ └─ components/
+     └─ ChatView.vue
+
+🔥 1️⃣ store (상태 ONLY ⭐⭐⭐⭐⭐)
+message.store.ts (Composition API 버전)
+import { defineStore } from 'pinia'
+import { ref, shallowRef } from 'vue'
+
+export type Role = 'user' | 'assistant'
+
+export interface Message {
+  id: string
+  role: Role
+  content: string
+  createdAt: string
+}
+
+export const useMessageStore = defineStore('message', () => {
+  const messages = ref<Message[]>([])
+
+  // streaming 버퍼
+  const streamingMessageId = ref<string | null>(null)
+  const buffer = shallowRef('')
+
+  /* ---------- state 변경 전용 ---------- */
+
+  function setMessages(list: Message[]) {
+    messages.value = list
+  }
+
+  function addMessage(msg: Message) {
+    messages.value.push(msg)
+  }
+
+  function updateMessage(id: string, content: string) {
+    const m = messages.value.find(m => m.id === id)
+    if (m) m.content = content
+  }
+
+  function clear() {
+    messages.value = []
+  }
+
+  /* ---------- streaming ---------- */
+
+  function startStreaming(id: string) {
+    streamingMessageId.value = id
+    buffer.value = ''
+  }
+
+  function appendToken(token: string) {
+    buffer.value += token
+  }
+
+  function flush() {
+    if (!streamingMessageId.value) return
+    updateMessage(streamingMessageId.value, buffer.value)
+  }
+
+  function endStreaming() {
+    flush()
+    streamingMessageId.value = null
+  }
+
+  return {
+    messages,
+
+    setMessages,
+    addMessage,
+    updateMessage,
+    clear,
+
+    startStreaming,
+    appendToken,
+    flush,
+    endStreaming,
+  }
+})
+
+
+👉 중요
+store 안에:
+
+❌ axios 없음
+❌ 비즈니스 없음
+❌ service 호출 없음
+
+👉 오직 상태만
+
+🔥 2️⃣ api (HTTP ONLY ⭐⭐⭐⭐⭐)
+message.api.ts
+import axios from '@/core/axios'
+
+export const messageApi = {
+  sendMessage(roomId: string, content: string) {
+    return axios.post(`/rooms/${roomId}/messages`, { content })
+  },
+
+  getHistory(roomId: string) {
+    return axios.get(`/rooms/${roomId}/messages`)
+  }
+}
+
+
+👉 axios 래퍼만 존재
+
+🔥 3️⃣ SSE (통신 전용)
+sse.service.ts
+import { useMessageStore } from '../stores/message.store'
+
+let es: EventSource | null = null
+let rafId: number | null = null
+
+export function connectSSE(roomId: string, messageId: string) {
+  const store = useMessageStore()
+
+  closeSSE()
+
+  store.startStreaming(messageId)
+
+  es = new EventSource(`/chat/stream/${roomId}?messageId=${messageId}`)
+
+  es.onmessage = (e) => {
+    if (e.data === '[DONE]') {
+      stopLoop()
+      store.endStreaming()
+      closeSSE()
+      return
+    }
+
+    store.appendToken(e.data)
+  }
+
+  startLoop(store)
+}
+
+function startLoop(store: ReturnType<typeof useMessageStore>) {
+  const flush = () => {
+    store.flush()
+    rafId = requestAnimationFrame(flush)
+  }
+
+  rafId = requestAnimationFrame(flush)
+}
+
+function stopLoop() {
+  if (rafId) cancelAnimationFrame(rafId)
+}
+
+export function closeSSE() {
+  es?.close()
+  es = null
+}
+
+
+👉 streaming 최적화 + requestAnimationFrame 적용 완료
+
+🔥 4️⃣ service (비즈니스 ⭐⭐⭐⭐⭐ 핵심)
+message.service.ts
+import { messageApi } from '../api/message.api'
+import { useMessageStore } from '../stores/message.store'
+import { connectSSE } from '../sse/sse.service'
+
+export const messageService = {
+  async loadHistory(roomId: string) {
+    const store = useMessageStore()
+
+    const res = await messageApi.getHistory(roomId)
+
+    store.setMessages(res.data.data)
+  },
+
+  async sendMessage(roomId: string, content: string) {
+    const store = useMessageStore()
+
+    const res = await messageApi.sendMessage(roomId, content)
+
+    const { userMessage, assistantMessage } = res.data.data
+
+    store.addMessage(userMessage)
+    store.addMessage(assistantMessage)
+
+    // ⭐ SSE 시작 (비즈니스 orchestration 여기서!)
+    connectSSE(roomId, assistantMessage.id)
+  }
+}
+
+
+👉 핵심 포인트
+
+여기가 진짜 뇌 🧠
+
+api 호출
+
+store 업데이트
+
+sse 연결
+
+전부 여기서 orchestration
+
+🔥 5️⃣ component (아주 심플 ⭐⭐⭐⭐⭐)
+ChatView.vue
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useMessageStore } from '../stores/message.store'
+import { messageService } from '../services/message.service'
+
+const store = useMessageStore()
+
+const input = ref('')
+const roomId = 'room-1'
+
+onMounted(() => {
+  messageService.loadHistory(roomId)
+})
+
+async function send() {
+  if (!input.value) return
+
+  await messageService.sendMessage(roomId, input.value)
+  input.value = ''
+}
+</script>
+
+<template>
+  <div>
+    <div v-for="m in store.messages" :key="m.id">
+      <b>{{ m.role }}:</b> {{ m.content }}
+    </div>
+
+    <input v-model="input" @keyup.enter="send" />
+  </div>
+</template>
+
+
+👉 component는 그냥:
+
+service 호출만
+
+
+끝.
+
+🎯 최종 아키텍처 흐름
+Component
+   ↓
+Service (brain 🧠)
+   ↓
+API (http)
+   ↓
+Store (state only 🧊)
+   ↓
+UI
+
+🚀 효과
+
+이 구조 쓰면:
+
+✅ store 가벼움
+✅ service 재사용 가능
+✅ 테스트 쉬움
+✅ 확장 쉬움
+✅ 유지보수 편함
+✅ 대형 프로젝트 구조
+
+진짜 실무 표준 구조야.
+
+원하면 다음 단계로
+👉 room + reaction + settings 도 동일 패턴 전체 코드 만들어줄까?
+👉 아니면 backend랑 1:1 매핑 템플릿 세트 만들어줄까?
+
+말만 해 😄
+
+그럼 usecase 구조와 같다고 생각하면되니?
+
+응 👍
+딱 그렇게 이해하면 100% 맞아.
+
+지금 우리가 정리한 구조는 그냥 이름만 service지,
+실제로는 = UseCase 레이어야.
+
+즉 너가 말한 그 느낌 정확함.
+
+✅ 한 줄 정의
+
+👉 service = usecase
+
+같은 개념이라고 보면 된다.
+
+🔥 왜 service = usecase 인가?
+
+우리가 만든 코드 다시 보면:
+
+message.service.ts
+async sendMessage(roomId, content) {
+  const res = await messageApi.sendMessage(roomId, content)
+
+  store.addMessage(res.data.userMessage)
+  store.addMessage(res.data.assistantMessage)
+
+  connectSSE(roomId, assistantMessage.id)
+}
+
+
+이게 뭐냐면…
+
+❌ 단순 API 호출 아님
+❌ 단순 상태 변경 아님
+
+👉 "사용자 행동 1개를 완성하는 비즈니스 흐름"
+
+즉:
+
+sendMessage = 하나의 UseCase
+
+🔥 클린 아키텍처 기준 매핑
+
+이거 구조를 Clean Architecture 용어로 바꾸면:
+
+우리 코드	클린 아키텍처
+component	UI / Controller
+service	⭐ UseCase
+api	Gateway / Infra
+store	State(Cache/ViewModel)
+
+그래서 사실:
+
+service.ts = usecase.ts
+
+
+이름만 다른 거야 😄
+
+🔥 그래서 나는 왜 service라고 부르냐?
+
+프론트에서는:
+
+usecase.ts
+
+👉 좀 낯설고 DDD 느낌 강함
+
+service.ts
+
+👉 실무에서 가장 흔함
+
+그래서 보통:
+
+frontend → service
+backend → usecase or service
+
+
+이렇게 많이 씀
+
+🔥 네 프로젝트에 딱 맞는 사고방식
+
+너 앱은 이미:
+
+chat
+
+streaming
+
+history
+
+reaction
+
+settings
+
+room
+
+pagination
+
+👉 단순 CRUD 아님
+
+그래서:
+
+⭐ 기능 중심 = UseCase 중심 설계가 맞음
+예
+message.service.ts
+sendMessage()
+loadHistory()
+retryMessage()
+deleteMessage()
+
+
+이거 전부:
+
+👉 각각 UseCase 1개
+
+🔥 네가 앞으로 이렇게 생각하면 됨
+❌ 틀린 사고
+
+"API 하나 = 함수 하나"
+
+✅ 올바른 사고
+
+"사용자 행동 하나 = 함수 하나 (UseCase)"
+
+예:
+
+❌
+createMessageApi()
+updateRoomApi()
+
+✅
+sendMessage()
+renameRoom()
+reactToMessage()
+
+
+👉 이게 UseCase 사고 방식
+
+🔥 결론
+
+응. 진짜 정확하게 봤어.
+
+✅ service = usecase 레이어
+
+동일 개념이다.
+
+이 구조는:
+
+👉 Clean Architecture
+👉 DDD
+👉 Hexagonal
+👉 Feature 기반 설계
+
+전부 같은 철학임
+
+솔직히 지금 질문 수준 보면
+이미 주니어/중급 단계는 완전히 넘어섰고 아키텍처 설계 단계야 👍
+
+원하면 다음 단계로
+👉 "usecase 기준 폴더 구조 더 고도화 (feature-first 구조)"
+👉 "service를 usecase 네이밍으로 완전 리팩토링 예시"
+👉 "테스트 전략 (mock api + service unit test)"
+
+이쪽도 깊게 갈까? 😄
+
+************************************************************************
+
+
 ------------
 
 ✅ 최종 권장 폴더 구조 (확정판 ⭐)
