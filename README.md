@@ -1,3 +1,57 @@
+import asyncio
+from datetime import datetime
+
+from .repository import MessageRepository
+from ...repositories.room_repo import RoomRepository
+
+
+class MessageService:
+
+    def __init__(self, msg_repo: MessageRepository, room_repo: RoomRepository):
+        self.msg_repo = msg_repo
+        self.room_repo = room_repo
+
+    # ✅ POST
+    async def create_user_message(self, room_id: int, content: str):
+        return await self.msg_repo.create_user(room_id, content)
+
+    # ✅ SSE 핵심 ⭐⭐⭐⭐⭐
+    async def stream_gpt(self, room_id: int, message_id: int):
+
+        # 1. DB 다시 읽기 (정석)
+        message = await self.msg_repo.get(message_id)
+
+        # 2. history 구성
+        history = await self.msg_repo.get_room_history(room_id)
+
+        assistant_msg = await self.msg_repo.create_assistant_placeholder(room_id)
+
+        full_text = ""
+
+        # 3. GPT 토큰 스트리밍 (mock)
+        async for token in fake_gpt_stream(history):
+
+            full_text += token
+
+            yield {
+                "event": "token",
+                "data": token,
+            }
+
+        # 4. DB 저장
+        await self.msg_repo.update_content(assistant_msg.id, full_text)
+
+        # 5. room 갱신
+        await self.room_repo.touch_last_message(room_id)
+
+        yield {
+            "event": "done",
+            "data": "[DONE]",
+        }
+
+
+
+
 // services/sse.ts
 
 export interface SSEOptions {
