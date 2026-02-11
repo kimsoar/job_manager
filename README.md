@@ -1,3 +1,236 @@
+오 👍 이제 백엔드 네이밍 → 프론트 네이밍까지 통일 단계 왔네
+이거 맞추면 진짜…
+
+👉 풀스택 코드가 “한 덩어리처럼” 읽힘
+
+개발 속도 체감 2배 이상 올라감.
+
+🎯 목표
+
+지금 우리가 이미 만든 백엔드 규칙:
+
+Router   = HTTP
+Service  = Business
+Repo     = DB
+
+
+👉 프론트도 완전히 같은 철학으로 맞출 거야
+
+✅ 프론트 레이어 역할 먼저 정리
+
+Vue3 (Pinia + api + service 구조)
+
+보통:
+
+store   → 상태
+service → 비즈니스 로직
+api     → http 호출
+
+
+즉:
+
+레이어	역할	백엔드 대응
+store	상태관리	cache/view-model
+service	비즈니스 로직	service
+api	axios/http	router
+
+👉 1:1 매핑 가능 ⭐⭐⭐⭐⭐
+
+🔥 네이밍 핵심 원칙 (프론트)
+1️⃣ api.ts
+👉 "HTTP 동사 ONLY"
+
+백엔드 router랑 동일하게
+
+create
+list
+get
+update
+delete
+
+
+절대 비즈니스 단어 금지 ❌
+
+2️⃣ service.ts
+👉 "비즈니스 행동"
+
+백엔드 service랑 동일
+
+sendMessage
+renameRoom
+react
+streamReply
+
+3️⃣ store.ts
+👉 상태 중심
+set
+add
+remove
+clear
+patch
+append
+reset
+
+
+"행동" 말고 "상태 변경" 위주
+
+🎯 레이어별 규칙 확정
+✅ api.ts 규칙 (HTTP 전용)
+공식
+HTTP verb + resource
+
+room.api.ts
+createRoom()
+listRooms()
+getRoom()
+updateRoomTitle()
+deleteRoom()
+
+message.api.ts
+sendMessage()
+getHistory()
+getMessage()
+deleteMessage()
+
+reaction.api.ts
+addReaction()
+removeReaction()
+
+
+👉 axios 호출만 있음
+👉 절대 로직 X
+
+✅ service.ts 규칙 (비즈니스 행동 ⭐⭐⭐⭐⭐ 핵심)
+공식
+동사 + 도메인
+
+room.service.ts
+createRoom()
+loadRooms()
+renameRoom()
+deleteRoom()
+touchRoom()
+
+message.service.ts
+sendMessage()
+loadHistory()
+streamReply()
+deleteMessage()
+
+reaction.service.ts
+react()
+toggleReaction()
+removeReaction()
+
+
+👉 api 여러 개 조합 가능
+👉 store 호출 가능
+👉 진짜 "use-case"
+
+✅ store.ts 규칙 (상태 조작 ONLY)
+공식
+상태 동사 + 상태
+
+message.store.ts
+setMessages()
+addMessage()
+appendToken()
+updateMessage()
+removeMessage()
+clearMessages()
+
+room.store.ts
+setRooms()
+addRoom()
+updateRoom()
+removeRoom()
+touchRoom()
+
+
+👉 상태만 변경
+👉 비즈니스 로직 절대 금지 ❌
+
+🔥 실제 풀 플로우 예시 (🔥 이게 핵심)
+"메시지 전송" 흐름
+1️⃣ Component
+await messageService.sendMessage(roomId, text)
+
+2️⃣ service
+async function sendMessage(roomId, text) {
+  const res = await messageApi.sendMessage(roomId, text)
+  messageStore.addMessage(res.data)
+}
+
+3️⃣ api
+async function sendMessage(roomId, text) {
+  return axios.post(`/rooms/${roomId}/messages`, { text })
+}
+
+👉 레이어 역할 완벽 분리
+component → service → api
+                    ↓
+                 backend
+
+🔥 최종 네이밍 표 (복붙 저장 추천 ⭐)
+api
+create
+list
+get
+update
+delete
+
+service
+sendMessage
+loadHistory
+streamReply
+renameRoom
+react
+toggleReaction
+
+store
+set
+add
+remove
+update
+append
+clear
+reset
+
+🎯 네 프로젝트 기준 최종 파일 예시
+chat/
+ ├─ api/
+ │   ├─ room.api.ts
+ │   ├─ message.api.ts
+ │   └─ reaction.api.ts
+ │
+ ├─ services/
+ │   ├─ room.service.ts
+ │   ├─ message.service.ts
+ │   └─ reaction.service.ts
+ │
+ ├─ stores/
+ │   ├─ room.store.ts
+ │   └─ message.store.ts
+
+🚀 한 줄 정리
+api → HTTP
+service → 행동
+store → 상태
+
+이 규칙만 지키면
+
+👉 코드 읽기 스트레스 0
+👉 협업 쉬움
+👉 백/프론트 완벽 대칭
+👉 유지보수 지옥 탈출
+
+원하면 다음 단계로
+👉 실제 chat 프론트 전체 샘플 코드 (api/service/store 전부 구현본)
+👉 Pinia + SSE + streaming 최적화 템플릿
+
+어느 쪽 만들어줄까? 😄
+------------
+
 ✅ 최종 권장 폴더 구조 (확정판 ⭐)
 app/
  ├─ core/
