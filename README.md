@@ -1,4 +1,247 @@
+오 좋다 👍
+지금 단계는 **“코드 스타일 통일 = 생산성 폭발 구간”**이야.
 
+솔직히
+아키텍처보다 네이밍 규칙이 더 중요함.
+
+팀 커질수록:
+
+"이 함수 뭐야?"
+"create? add? insert? save?"
+
+
+👉 이런게 개발속도 30% 깎아먹음 😇
+
+✅ 목표
+
+우리가 만들고 싶은 것:
+
+router / service / repo
+각 레이어 역할에 맞는 "일관된 동사 규칙"
+
+
+👉 보고 바로 이해되는 이름
+
+🔥 핵심 원칙 3개 (먼저 박고 시작)
+⭐ Rule 1
+Router = HTTP 의미
+create / list / get / delete / update
+
+
+REST 친화적
+
+⭐ Rule 2
+Service = 비즈니스 의미
+create_room
+send_message
+react_to_message
+
+
+행동 중심
+
+⭐ Rule 3
+Repository = DB 의미 (SQL 느낌)
+insert / fetch / delete / update / exists
+
+
+CRUD + SQL 스타일
+
+🎯 레이어별 명명 공식
+✅ 1️⃣ Router 규칙 (HTTP 중심)
+동사 고정 추천
+HTTP	함수명
+POST	create
+GET list	list
+GET one	get
+PATCH/PUT	update
+DELETE	delete
+예시
+room/router.py
+create_room()
+list_rooms()
+get_room()
+delete_room()
+update_room_title()
+
+message/router.py
+send_message()
+get_history()
+get_message()
+delete_message()
+
+reaction/router.py
+add_reaction()
+remove_reaction()
+
+
+👉 Router는 API 문서 느낌으로 직관적
+
+✅ 2️⃣ Service 규칙 (비즈니스 행동 중심 ⭐⭐⭐⭐⭐ 중요)
+
+여기가 핵심
+
+공식
+동사 + 도메인
+
+room/service.py
+create_room()
+list_rooms()
+get_room()
+rename_room()
+delete_room()
+touch_last_message()
+
+❌ update_room_title ❌
+✅ rename_room ⭕
+
+이유:
+👉 "행위"가 더 명확
+
+message/service.py
+send_message()         # user 입력
+create_assistant_reply() # assistant 생성
+get_history()
+delete_message()
+stream_reply()
+
+❌ create_message ❌
+✅ send_message ⭕
+
+비즈니스 의미 살아있음
+
+reaction/service.py
+react()
+remove_reaction()
+toggle_reaction()
+
+❌ create_reaction ❌
+✅ react ⭕
+
+자연어처럼 읽힘
+
+✅ 3️⃣ Repository 규칙 (DB 전용 ⭐ SQL 느낌)
+
+여긴 감정 없이 CRUD만
+
+공식
+insert
+fetch_one
+fetch_many
+update
+delete
+exists
+
+room_repo.py
+insert()
+fetch_one()
+fetch_many()
+update_title()
+delete()
+update_last_message_at()
+
+message_repo.py
+insert()
+fetch_history()
+fetch_one()
+update_content()
+delete()
+
+reaction_repo.py
+insert()
+delete()
+exists()
+
+🔥 최종 정리표 (⭐ 이거 저장 추천)
+Router
+create
+list
+get
+update
+delete
+
+Service
+create_room
+rename_room
+send_message
+stream_reply
+react
+toggle_reaction
+
+
+👉 비즈니스 행동
+
+Repository
+insert
+fetch_one
+fetch_many
+update
+delete
+exists
+
+
+👉 SQL 느낌
+
+🔥 실전 예시 (딱 이렇게)
+message flow
+router
+send_message()
+
+
+↓
+
+service
+send_message()
+
+
+↓
+
+repo
+insert()
+
+
+이렇게 되면
+
+👉 레이어가 이름만 봐도 구분됨
+
+🎯 네 프로젝트 기준 추천 네이밍 세트
+room
+create_room
+list_rooms
+get_room
+rename_room
+delete_room
+
+message
+send_message
+get_history
+get_message
+delete_message
+stream_reply
+
+reaction
+react
+remove_reaction
+toggle_reaction
+
+settings
+get_settings
+update_settings
+
+🚀 한줄 결론
+
+Router = HTTP
+Service = 행동
+Repo = SQL
+
+이 3개 분리하면
+👉 코드 가독성 2배 + 유지보수 3배 쉬워짐
+
+원하면
+👉 이 규칙 기준으로 실제 chat 폴더 전체 파일 이름/함수명 리팩토링 버전도 만들어줄까?
+(프로덕션 표준 템플릿 세트로 딱 정리해줄게 😄)
+
+
+---------------------------------------------------------------------------------------------------
 
 
 async def create_assistant_placeholder(self, room_id: int):
