@@ -82,6 +82,267 @@ export function useChatStream() {
 }
 
 
+================================================
+
+app/
+ ├─ main.py
+ ├─ router/
+ │    └─ conversation_router.py
+ ├─ service/
+ │    └─ conversation_service.py
+ ├─ repo/
+ │    ├─ conversation_repo.py
+ │    └─ message_repo.py
+ └─ infra/
+      └─ llm_client.py
+
+DB는 asyncpg + jsonb codec 등록했다고 가정.
+
+1️⃣ infra/llm_client.py
+# infra/llm_client.py
+
+from typing import AsyncGenerator, List
+import httpx
+
+
+class LLMClient:
+    def __init__(self, api_key: str, base_url: str):
+        self.api_key = api_key
+        self.base_url = base_url
+
+    async def stream_chat(
+        self,
+        messages: List[dict],
+        model: str = "gpt-4o-mini",
+    ) -> AsyncGenerator[str, None]:
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": True,
+        }
+
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            ) as response:
+
+                async for line in response.aiter_lines():
+                    if not line:
+                        continue
+
+                    if line.startswith("data: "):
+                        data = line.removeprefix("data: ")
+                        if data == "[DONE]":
+                            break
+                        yield data
+2️⃣ repo/conversation_repo.py
+class ConversationRepo:
+    def __init__(self, pool):
+        self.pool = pool
+
+    async def create(self, user_id: str):
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO conversation (user_id, title)
+                VALUES ($1, 'New Conversation')
+                RETURNING *
+                """,
+                user_id,
+            )
+            return dict(row)
+3️⃣ repo/message_repo.py
+class MessageRepo:
+    def __init__(self, pool):
+        self.pool = pool
+
+    async def save(
+        self,
+        conversation_id: str,
+        role: str,
+        content: str,
+    ):
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO message (conversation_id, role, content)
+                VALUES ($1, $2, $3)
+                """,
+                conversation_id,
+                role,
+                content,
+            )
+
+(content는 jsonb라면 dict/list 그대로 넣으면 됨 — codec 등록 가정)
+
+4️⃣ service/conversation_service.py
+class ConversationService:
+    def __init__(
+        self,
+        conversation_repo,
+        message_repo,
+        llm_client,
+    ):
+        self.conversation_repo = conversation_repo
+        self.message_repo = message_repo
+        self.llm_client = llm_client
+
+    async def create_and_stream(self, user_id: str, user_input: str):
+
+        conversation = await self.conversation_repo.create(user_id)
+
+        messages = [
+            {"role": "user", "content": user_input}
+        ]
+
+        full_response = ""
+
+        async for chunk in self.llm_client.stream_chat(messages):
+            full_response += chunk
+            yield chunk
+
+        await self.message_repo.save(
+            conversation_id=conversation["id"],
+            role="assistant",
+            content=full_response,
+        )
+5️⃣ router/conversation_router.py
+
+FastAPI 기준:
+
+from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
+
+
+router = APIRouter()
+
+
+def get_conversation_service(request):
+    return request.app.state.conversation_service
+
+
+@router.post("/chat/stream")
+async def stream_chat(
+    user_id: str,
+    user_input: str,
+    service = Depends(get_conversation_service),
+):
+
+    async def generator():
+        async for chunk in service.create_and_stream(user_id, user_input):
+            yield chunk
+
+    return StreamingResponse(generator(), media_type="text/plain")
+6️⃣ main.py
+from fastapi import FastAPI
+import asyncpg
+import json
+
+from repo.conversation_repo import ConversationRepo
+from repo.message_repo import MessageRepo
+from service.conversation_service import ConversationService
+from infra.llm_client import LLMClient
+from router.conversation_router import router
+
+
+DATABASE_URL = "postgresql://user:pass@localhost:5432/db"
+
+
+async def init_connection(conn):
+    await conn.set_type_codec(
+        "jsonb",
+        encoder=json.dumps,
+        decoder=json.loads,
+        schema="pg_catalog",
+    )
+
+
+app = FastAPI()
+
+
+@app.on_event("startup")
+async def startup():
+
+    pool = await asyncpg.create_pool(
+        dsn=DATABASE_URL,
+        init=init_connection,
+    )
+
+    conversation_repo = ConversationRepo(pool)
+    message_repo = MessageRepo(pool)
+
+    llm_client = LLMClient(
+        api_key="YOUR_API_KEY",
+        base_url="https://api.openai.com/v1",
+    )
+
+    conversation_service = ConversationService(
+        conversation_repo,
+        message_repo,
+        llm_client,
+    )
+
+    app.state.pool = pool
+    app.state.conversation_service = conversation_service
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await app.state.pool.close()
+
+
+app.include_router(router)
+🎯 이 구조의 핵심
+
+의존 흐름:
+
+Router
+  ↓
+ConversationService
+  ↓
+LLMClient (Infra)
+  ↓
+DB Repo
+
+✔ 순환 의존 없음
+✔ 테스트 가능
+✔ LLM 교체 가능
+✔ DB 교체 가능
+
+🔥 지금 구조는 실무에서도 충분히 통하는 구조
+
+더 발전시키면:
+
+Unit of Work 패턴
+
+Interface 기반 DI
+
+Aggregate Root 명확화
+
+Domain 모델 분리
+
+까지 갈 수 있다.
+
+원하면 다음 단계:
+
+Pydantic DTO + Domain Entity 분리 버전
+
+테스트 코드까지 포함한 구조
+
+WebSocket 스트리밍 버전
+
+어디까지 확장해볼까? 😎
+
+
 
 ================================================
 
