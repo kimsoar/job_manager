@@ -1,3 +1,91 @@
+// composables/useChatStream.ts
+
+import { ref } from 'vue'
+
+export function useChatStream() {
+  const message = ref('')
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+
+  let controller: AbortController | null = null
+
+  async function start(payload: any, token: string) {
+    controller = new AbortController()
+
+    loading.value = true
+    error.value = null
+    message.value = ''
+
+    try {
+      const response = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      })
+
+      if (!response.body) throw new Error('No response body')
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        // SSE는 \n\n 단위로 끊김
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() || ''
+
+        for (const part of parts) {
+          if (!part.startsWith('data:')) continue
+
+          const data = part.replace('data: ', '').trim()
+
+          if (data === '[DONE]') {
+            loading.value = false
+            return
+          }
+
+          // 🔥 토큰 단위로 이어붙이기 (ChatGPT 스타일)
+          message.value += data
+        }
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        error.value = e.message
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function stop() {
+    controller?.abort()
+    loading.value = false
+  }
+
+  return {
+    message,
+    loading,
+    error,
+    start,
+    stop
+  }
+}
+
+
+
+================================================
+
+
 // composables/useStream.ts
 
 import { ref } from 'vue'
