@@ -1,3 +1,64 @@
+// composables/useStream.ts
+
+import { ref } from 'vue'
+
+export function useStream() {
+  const data = ref('')
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+
+  async function startStream(payload: any, token: string) {
+    loading.value = true
+    error.value = null
+    data.value = ''
+
+    try {
+      const response = await fetch('/api/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      })
+
+      if (!response.body) throw new Error('No stream body')
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+
+        chunk
+          .split('\n')
+          .filter(line => line.startsWith('data:'))
+          .forEach(line => {
+            const text = line.replace('data: ', '')
+            data.value += text
+          })
+      }
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  return {
+    data,
+    loading,
+    error,
+    startStream
+  }
+}
+
+
+
+
 좋습니다 👍
 이제 구조가 완전히 이해됐습니다.
 
