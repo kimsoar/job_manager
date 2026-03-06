@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
+
+  <system.webServer>
+
+    <!-- MIME TYPES -->
+    <staticContent>
+      <mimeMap fileExtension=".js" mimeType="application/javascript" />
+      <mimeMap fileExtension=".mjs" mimeType="application/javascript" />
+      <mimeMap fileExtension=".wasm" mimeType="application/wasm" />
+      <mimeMap fileExtension=".json" mimeType="application/json" />
+    </staticContent>
+
+    <!-- CORS -->
+    <httpProtocol>
+      <customHeaders>
+        <add name="Access-Control-Allow-Origin" value="*" />
+        <add name="Access-Control-Allow-Methods" value="GET,POST,OPTIONS" />
+        <add name="Access-Control-Allow-Headers" value="*" />
+      </customHeaders>
+    </httpProtocol>
+
+    <!-- OPTIONS 허용 -->
+    <handlers>
+      <add name="OPTIONSVerbHandler"
+           path="*"
+           verb="OPTIONS"
+           modules="ProtocolSupportModule"
+           resourceType="Unspecified" />
+    </handlers>
+
+    <!-- Vue Router (SPA) -->
+    <rewrite>
+      <rules>
+        <rule name="VueRouter" stopProcessing="true">
+          <match url=".*" />
+          <conditions logicalGrouping="MatchAll">
+            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true"/>
+            <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true"/>
+          </conditions>
+          <action type="Rewrite" url="/" />
+        </rule>
+      </rules>
+    </rewrite>
+
+  </system.webServer>
+
+</configuration>
+
+
+
+
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
  <system.webServer>
   <rewrite>
    <rules>
