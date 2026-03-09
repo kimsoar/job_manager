@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <system.webServer>
+
+    <handlers>
+      <clear />
+      <add name="StaticFile"
+           path="*"
+           verb="*"
+           modules="StaticFileModule"
+           resourceType="File"
+           requireAccess="Read" />
+    </handlers>
+
+    <staticContent>
+      <clientCache cacheControlMode="UseMaxAge"
+                   cacheControlMaxAge="30.00:00:00" />
+    </staticContent>
+
+  </system.webServer>
+</configuration>
+
+
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <system.webServer>
     <handlers>
       <clear />
       <add name="StaticFile"
