@@ -1,3 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <system.webServer>
+    <handlers>
+      <clear />
+      <add name="StaticFile"
+           path="*"
+           verb="*"
+           modules="StaticFileModule"
+           resourceType="File"
+           requireAccess="Read" />
+    </handlers>
+  </system.webServer>
+</configuration>
+
+
+
 vue3 typescript vite tailwindcss를 이용해 module federation의 모듈을 개발중에 있어
 배포를 했는데.
 iis의 Url rewrite를 통해 npm run dev로 서비스 하면 assets/... 경로의 파일들을 잘 가져와서 화면이 정상적으로 나타나는데.
