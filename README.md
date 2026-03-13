@@ -1,3 +1,47 @@
+set JAVA_OPTS=-Xms32g -Xmx32g ^
+-XX:+UseG1GC ^
+-XX:MaxGCPauseMillis=200 ^
+-XX:InitiatingHeapOccupancyPercent=30 ^
+-XX:+ParallelRefProcEnabled ^
+-XX:+UseStringDeduplication ^
+-XX:+HeapDumpOnOutOfMemoryError ^
+-XX:HeapDumpPath=logs\mb_heapdump.hprof ^
+-XX:+PrintGCDetails ^
+-XX:+PrintGCDateStamps ^
+-Xloggc:logs\gc.log ^
+-XX:+UseGCLogFileRotation ^
+-XX:NumberOfGCLogFiles=10 ^
+-XX:GCLogFileSize=100M ^
+-Dspring.task.execution.pool.max-size=10 ^
+-Dspring.task.execution.pool.queue-capacity=50 ^
+-Dspring.tomcat.max-threads=50 ^
+-Dspring.tomcat.accept-count=100
+
+
+start "mb.local.com" cmd /c java %JAVA_OPTS% ^
+-jar mbserver.java ^
+> logs\mb.log 2>&1
+
+
+
+
+
+
+-verbose:gc
+>
+-XX:+PrintGCDetails
+-XX:+PrintGCDateStamps
+-Xloggc:logs\gc.log
+-XX:+UseGCLogFileRotation
+-XX:NumberOfGCLogFiles=10
+-XX:GCLogFileSize=100M
+
+추가
+-XX:+ParallelRefProcEnabled
+
+
+
+
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <system.webServer>
