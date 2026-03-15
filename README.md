@@ -1,3 +1,6 @@
+-----------------
+Active 설정
+-----------------
 set JAVA_OPTS=-Xms20g -Xmx20g ^
 -XX:+UseG1GC ^
 -XX:MaxGCPauseMillis=250 ^
@@ -17,13 +20,41 @@ set JAVA_OPTS=-Xms20g -Xmx20g ^
 -XX:GCLogFileSize=100M ^
 -Dspring.task.execution.pool.max-size=8 ^
 -Dspring.task.execution.pool.queue-capacity=50 ^
--Dspring.tomcat.max-threads=40 ^
--Dspring.tomcat.accept-count=100
-
+-Dspring.tomcat.max-threads=16 ^
+-Dspring.tomcat.accept-count=50
 start "mb.local.com" cmd /c java %JAVA_OPTS% ^
 -jar mbserver.java ^
 > logs\mb.log 2>&1
 
+
+-----------------
+Standby 설정
+-----------------
+set JAVA_OPTS=-Xms10g -Xmx10g ^
+-XX:+UseG1GC ^
+-XX:MaxGCPauseMillis=250 ^
+-XX:InitiatingHeapOccupancyPercent=30 ^
+-XX:G1ReservePercent=15 ^
+-XX:ParallelGCThreads=4 ^
+-XX:ConcGCThreads=2 ^
+-XX:+ParallelRefProcEnabled ^
+-XX:+AlwaysPreTouch ^
+-XX:+HeapDumpOnOutOfMemoryError ^
+-XX:HeapDumpPath=logs\mb_heapdump.hprof ^
+-XX:+PrintGCDetails ^
+-XX:+PrintGCDateStamps ^
+-Xloggc:logs\gc.log ^
+-XX:+UseGCLogFileRotation ^
+-XX:NumberOfGCLogFiles=10 ^
+-XX:GCLogFileSize=100M ^
+-Dspring.task.execution.pool.max-size=5 ^
+-Dspring.task.execution.pool.queue-capacity=25 ^
+-Dspring.tomcat.max-threads=16 ^
+-Dspring.tomcat.accept-count=50
+
+
+
+---------------
 
 
 SELECT
