@@ -25,6 +25,33 @@ start "mb.local.com" cmd /c java %JAVA_OPTS% ^
 > logs\mb.log 2>&1
 
 
+
+SELECT
+    log_date,
+    ip_prefix,
+    COUNT(*) AS log_count
+FROM (
+    SELECT
+        event_time::date AS log_date,
+        split_part(ip,'.',1) || '.' || split_part(ip,'.',2) AS ip_prefix
+    FROM log_table
+) t
+GROUP BY log_date, ip_prefix
+ORDER BY log_date, log_count DESC;
+
+
+
+
+
+SELECT
+    event_time::date AS log_date,
+    COUNT(*) AS request_count
+FROM log_table
+WHERE event_time >= '2026-03-01'
+AND event_time <  '2026-04-01'
+GROUP BY log_date
+ORDER BY log_date;
+
 ========================================================
 
 
