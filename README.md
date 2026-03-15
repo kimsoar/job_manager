@@ -3,8 +3,8 @@ set JAVA_OPTS=-Xms20g -Xmx20g ^
 -XX:MaxGCPauseMillis=250 ^
 -XX:InitiatingHeapOccupancyPercent=30 ^
 -XX:G1ReservePercent=15 ^
+-XX:ParallelGCThreads=4 ^
 -XX:ConcGCThreads=2 ^
--XX:ParallelGCThreads=8 ^
 -XX:+ParallelRefProcEnabled ^
 -XX:+AlwaysPreTouch ^
 -XX:+HeapDumpOnOutOfMemoryError ^
@@ -15,9 +15,9 @@ set JAVA_OPTS=-Xms20g -Xmx20g ^
 -XX:+UseGCLogFileRotation ^
 -XX:NumberOfGCLogFiles=10 ^
 -XX:GCLogFileSize=100M ^
--Dspring.task.execution.pool.max-size=10 ^
+-Dspring.task.execution.pool.max-size=8 ^
 -Dspring.task.execution.pool.queue-capacity=50 ^
--Dspring.tomcat.max-threads=50 ^
+-Dspring.tomcat.max-threads=40 ^
 -Dspring.tomcat.accept-count=100
 
 start "mb.local.com" cmd /c java %JAVA_OPTS% ^
