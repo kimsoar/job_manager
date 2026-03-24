@@ -1,3 +1,31 @@
+import { ipcMain } from "electron";
+import axios from "axios";
+
+ipcMain.handle("get-status", async (_, url: string) => {
+  try {
+    const res = await axios.get(url, {
+      validateStatus: () => true,
+      timeout: 3000
+    });
+    return res.status;
+  } catch {
+    return null;
+  }
+});
+
+
+
+import { ipcRenderer } from "electron";
+
+const status = await ipcRenderer.invoke("get-status", "https://example.com");
+
+console.log(status);
+
+
+
+
+
+
 import { contextBridge } from "electron";
 import axios, { AxiosError } from "axios";
 
