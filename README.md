@@ -1,3 +1,68 @@
+import { contextBridge } from "electron";
+import axios, { AxiosError } from "axios";
+
+contextBridge.exposeInMainWorld("http", {
+  getStatus: async (url: string): Promise<number | null> => {
+    try {
+      const res = await axios.get(url, {
+        timeout: 3000,
+        validateStatus: () => true // 💡 무조건 resolve
+      });
+
+      return res.status;
+    } catch (err) {
+      const e = err as AxiosError;
+
+      // 네트워크 에러 / DNS / 타임아웃
+      if (!e.response) {
+        return null;
+      }
+
+      return e.response.status;
+    }
+  }
+});
+
+
+
+
+export {};
+
+declare global {
+  interface Window {
+    http: {
+      getStatus: (url: string) => Promise<number | null>;
+    };
+  }
+}
+
+
+async function check() {
+  const status = await window.http.getStatus("https://example.com");
+
+  if (status === 200) {
+    console.log("정상");
+  } else if (status === null) {
+    console.log("네트워크/CORS/접속 실패");
+  } else {
+    console.log("에러 상태:", status);
+  }
+}
+
+import { BrowserWindow } from "electron";
+
+const win = new BrowserWindow({
+  webPreferences: {
+    preload: "path/to/preload.js",
+    contextIsolation: true,
+    nodeIntegration: false
+  }
+});
+
+
+
+
+
 -----------------
 Active 설정
 -----------------
