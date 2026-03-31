@@ -1,3 +1,19 @@
+<style lang="scss" scoped>
+/* 🔥 Antd hover 제거 */
+:deep(.ant-table-tbody > tr:hover > td) {
+  background: transparent !important;
+}
+
+/* 🔥 Antd 선택 색 제거 */
+:deep(.ant-table-tbody > tr.ant-table-row-selected > td) {
+  background-color: transparent !important;
+}
+</style>
+
+
+------------------------------------------------------------
+
+
 <template>
   <a-form
     ref="formRef"
