@@ -1,4 +1,37 @@
 
+const getRowClassName = (record: TableRow) => {
+  const isSelected = selectedRowKeys.value.includes(record.key)
+
+  const base = 'transition-all duration-200'
+
+  switch (record.status) {
+    case 'new':
+      return `
+        bg-green-50 hover:bg-green-100 
+        border-l-4 border-green-400 ${base}
+      `
+
+    case 'deleted':
+      return `
+        bg-red-100 hover:bg-red-200 
+        text-red-500 line-through ${base}
+      `
+
+    case 'new_deleted':
+      return `
+        bg-orange-100 hover:bg-orange-200 
+        text-orange-600 line-through ${base}
+      `
+
+    default:
+      if (isSelected) {
+        return `bg-blue-100 hover:bg-blue-200 ${base}`
+      }
+      return `hover:bg-gray-50 ${base}`
+  }
+}
+
+
 <style lang="scss" scoped>
 :deep(.ant-table-tbody) {
   > tr {
