@@ -1,3 +1,20 @@
+
+<style lang="scss" scoped>
+:deep(.ant-table-tbody) {
+  > tr {
+    &:hover > td {
+      background: transparent !important;
+    }
+
+    &.ant-table-row-selected > td {
+      background-color: transparent !important;
+    }
+  }
+}
+</style>
+
+---------------------------------------------------------------------------
+
 <style lang="scss" scoped>
 /* 🔥 Antd hover 제거 */
 :deep(.ant-table-tbody > tr:hover > td) {
