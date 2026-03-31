@@ -1,4 +1,84 @@
 <template>
+  <a-form
+    ref="formRef"
+    :model="form"
+    :rules="rules"
+    layout="vertical"
+  >
+    <!-- 이름 -->
+    <a-form-item label="Name" name="name">
+      <a-input v-model:value="form.name" />
+    </a-form-item>
+
+    <!-- 🔥 멀티 셀렉트 -->
+    <a-form-item label="Tags" name="tags">
+      <a-select
+        v-model:value="form.tags"
+        mode="multiple"
+        placeholder="태그 선택"
+        :options="options"
+        allow-clear
+      />
+    </a-form-item>
+
+    <!-- 버튼 -->
+    <a-button type="primary" @click="handleSubmit">
+      Submit
+    </a-button>
+  </a-form>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import type { FormInstance } from 'ant-design-vue'
+
+// form
+const formRef = ref<FormInstance>()
+
+const form = ref({
+  name: '',
+  tags: [] as string[],
+})
+
+// 옵션
+const options = [
+  { label: 'Frontend', value: 'frontend' },
+  { label: 'Backend', value: 'backend' },
+  { label: 'DevOps', value: 'devops' },
+]
+
+// 🔥 validation rules
+const rules = {
+  name: [
+    { required: true, message: '이름을 입력하세요' },
+  ],
+  tags: [
+    {
+      required: true,
+      type: 'array',
+      min: 1,
+      message: '최소 1개 이상 선택하세요',
+      trigger: 'change',
+    },
+  ],
+}
+
+// 제출
+const handleSubmit = async () => {
+  try {
+    await formRef.value?.validate()
+    console.log('성공:', form.value)
+  } catch (err) {
+    console.log('검증 실패')
+  }
+}
+</script>
+
+
+
+
+
+<template>
   <div class="p-6">
     <!-- 버튼 영역 -->
     <div class="mb-4 flex gap-2">
