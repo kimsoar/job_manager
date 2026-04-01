@@ -1,3 +1,19 @@
+// utils/url.ts
+export function extractPageId(url: string): number | null {
+  const patterns = [
+    /pageId=(\d+)/,
+    /\/pages\/(\d+)\//
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return Number(match[1]);
+  }
+
+  return null; // throw 대신 안전하게
+}
+
+
 <style lang="scss" scoped>
 :deep(.ant-table-tbody) {
 
