@@ -1,5 +1,94 @@
 <style lang="scss" scoped>
 :deep(.ant-table-tbody) {
+
+  > tr {
+
+    /* 기본 transition 제거 (중요) */
+    > td {
+      transition: none !important;
+    }
+
+    /* 🔴 삭제 */
+    &.row-deleted > td {
+      background-color: #fee2e2 !important;
+      color: #ef4444;
+      text-decoration: line-through;
+    }
+
+    &.row-deleted:hover > td {
+      background-color: #fecaca !important;
+    }
+
+    /* 🟠 신규삭제 */
+    &.row-new-deleted > td {
+      background-color: #ffedd5 !important;
+      color: #f97316;
+      text-decoration: line-through;
+    }
+
+    &.row-new-deleted:hover > td {
+      background-color: #fed7aa !important;
+    }
+
+    /* 🟢 신규 */
+    &.row-new > td {
+      background-color: #ecfdf5 !important;
+      border-left: 4px solid #4ade80;
+    }
+
+    &.row-new:hover > td {
+      background-color: #d1fae5 !important;
+    }
+
+    /* 🔵 선택 */
+    &.row-selected > td {
+      background-color: #dbeafe !important;
+    }
+
+    &.row-selected:hover > td {
+      background-color: #bfdbfe !important;
+    }
+
+    /* 기본 hover */
+    &:not(.row-new):not(.row-deleted):not(.row-new-deleted):hover > td {
+      background-color: #f9fafb !important;
+    }
+  }
+}
+
+/* 🔥 Antd 기본 완전 제거 */
+:deep(.ant-table-tbody > tr:hover > td) {
+  background: unset !important;
+}
+
+:deep(.ant-table-tbody > tr.ant-table-row-selected > td) {
+  background: unset !important;
+}
+</style>
+
+const getRowClassName = (record: TableRow) => {
+  const isSelected = selectedRowKeys.value.includes(record.key)
+
+  let cls = ''
+
+  if (record.status === 'deleted') cls = 'row-deleted'
+  else if (record.status === 'new_deleted') cls = 'row-new-deleted'
+  else if (record.status === 'new') cls = 'row-new'
+
+  if (isSelected) cls += ' row-selected'
+
+  return cls.trim()
+}
+
+
+
+
+
+
+
+
+<style lang="scss" scoped>
+:deep(.ant-table-tbody) {
   > tr {
     transition: all 0.15s ease;
 
