@@ -1,3 +1,36 @@
+<style lang="scss" scoped>
+:deep(.ant-table) {
+  border: 1px solid #e5e7eb; // Tailwind gray-200
+
+  .ant-table-container {
+    border-inline-start: 1px solid #e5e7eb;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .ant-table-cell {
+    border-inline-end: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+}
+</style>
+
+:deep(.ant-table) {
+  border: 1px solid #d1d5db;
+
+  .ant-table-cell {
+    border: 1px solid #d1d5db;
+  }
+}
+
+:deep(.ant-table) {
+  border: 1px solid #e5e7eb;
+
+  .ant-table-cell {
+    border-color: #e5e7eb;
+  }
+}
+
+
 
 const getRowClassName = (record: TableRow) => {
   const isSelected = selectedRowKeys.value.includes(record.key)
