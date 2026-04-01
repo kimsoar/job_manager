@@ -1,4 +1,70 @@
 <style lang="scss" scoped>
+:deep(.ant-table-tbody) {
+  > tr {
+    transition: all 0.15s ease;
+
+    /* 🔵 선택 상태 */
+    &.selected-row > td {
+      background-color: #dbeafe !important; // blue-100
+    }
+
+    &:hover.selected-row > td {
+      background-color: #bfdbfe !important; // blue-200
+    }
+
+    /* 🟢 신규 */
+    &.new-row > td {
+      background-color: #ecfdf5 !important; // green-50
+      border-left: 4px solid #4ade80;
+    }
+
+    &:hover.new-row > td {
+      background-color: #d1fae5 !important; // green-100
+    }
+
+    /* 🔴 삭제 */
+    &.deleted-row > td {
+      background-color: #fee2e2 !important; // red-100
+      color: #ef4444;
+      text-decoration: line-through;
+    }
+
+    &:hover.deleted-row > td {
+      background-color: #fecaca !important; // red-200
+    }
+
+    /* 🟠 신규 후 삭제 */
+    &.new-deleted-row > td {
+      background-color: #ffedd5 !important; // orange-100
+      color: #f97316;
+      text-decoration: line-through;
+    }
+
+    &:hover.new-deleted-row > td {
+      background-color: #fed7aa !important; // orange-200
+    }
+
+    /* 기본 hover */
+    &:hover > td {
+      background-color: #f9fafb;
+    }
+  }
+}
+
+/* 🔥 Antd 기본 hover 제거 */
+:deep(.ant-table-tbody > tr:hover > td) {
+  background: transparent !important;
+}
+
+/* 🔥 선택 색 제거 */
+:deep(.ant-table-tbody > tr.ant-table-row-selected > td) {
+  background: transparent !important;
+}
+</style>
+
+
+
+<style lang="scss" scoped>
 :deep(.ant-table) {
   border: 1px solid #e5e7eb; // Tailwind gray-200
 
