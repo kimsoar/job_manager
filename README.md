@@ -1,3 +1,20 @@
+async def update_many_exec(self, q, values):
+    await self.conn.executemany(q, values)
+
+query = """
+UPDATE message
+SET content = $2
+WHERE id = $1
+"""
+
+values = [
+    (uuid1, "hello"),
+    (uuid2, "world"),
+]
+
+await repo.update_many_exec(query, values)
+
+
 // utils/url.ts
 export function extractPageId(url: string): number | null {
   const patterns = [
