@@ -1,104 +1,261 @@
-async def update_many_exec(self, q, values):
-    await self.conn.executemany(q, values)
+<template>
+  <div class="p-6">
+    <!-- 버튼 -->
+    <div class="mb-4 flex gap-2">
+      <a-button type="primary" @click="openModal">Add Row</a-button>
+      <a-button danger :disabled="!selectedRow" @click="markDelete">Delete</a-button>
+      <a-button :disabled="!hasDeleted" @click="applyDelete">Apply Delete</a-button>
+      <a-button @click="clearSelection">Clear</a-button>
+    </div>
 
-query = """
-UPDATE message
-SET content = $2
-WHERE id = $1
-"""
+    <!-- 테이블 -->
+    <a-table
+      :columns="columns"
+      :data-source="dataSource"
+      :row-selection="rowSelection"
+      :row-class-name="getRowClassName"
+      :custom-row="onRowClick"
+      rowKey="key"
+      :pagination="false"
+    >
+      <!-- 🔍 검색 필터 UI -->
+      <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+         <div style="padding: 8px">
+        <a-input
+          ref="searchInput"
+          :placeholder="`Search ${column.dataIndex}`"
+          :value="selectedKeys[0]"
+          style="width: 188px; margin-bottom: 8px; display: block"
+          @pressEnter="handleSearch(selectedKeys, confirm, column.dataIndex)"
+          @change="(e: Event) => handleInputChange(e, setSelectedKeys)"
+        />
+        <a-button
+          type="primary"
+          size="small"
+          style="width: 90px; margin-right: 8px"
+          @click="handleSearch(selectedKeys, confirm, column.dataIndex)"
+        >
+          <template #icon><SearchOutlined /></template>
+          Search
+        </a-button>
+        <a-button size="small" style="width: 90px" @click="handleReset(clearFilters)">
+          Reset
+        </a-button>
+      </div>
+      </template>
 
-values = [
-    (uuid1, "hello"),
-    (uuid2, "world"),
+      <!-- 🔍 필터 아이콘 -->
+      <template #customFilterIcon="{ filtered }">
+        <SearchOutlined :style="{ color: filtered ? '#108ee9' : undefined }" />
+      </template>
+    </a-table>
+
+    <!-- 모달 -->
+    <a-modal v-model:open="isModalOpen" title="Add User" @ok="handleOk">
+      <a-form layout="vertical">
+        <a-form-item label="Name">
+          <a-input v-model:value="form.name" />
+        </a-form-item>
+
+        <a-form-item label="Age">
+          <a-input-number v-model:value="form.age" style="width:100%" />
+        </a-form-item>
+
+        <a-form-item label="Address">
+          <a-input v-model:value="form.address" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, reactive } from 'vue'
+import { SearchOutlined } from '@ant-design/icons-vue'
+
+type RowStatus = 'normal' | 'new' | 'deleted' | 'new_deleted'
+const searchInput = ref<any>(null)
+interface TableRow {
+  key: string
+  name: string
+  age: number
+  address: string
+  status?: RowStatus
+}
+
+const handleInputChange = (
+  e: Event,
+  setSelectedKeys: (keys: string[]) => void
+) => {
+  const target = e.target as HTMLInputElement
+  setSelectedKeys(target.value ? [target.value] : [])
+}
+
+/**
+ * 데이터
+ */
+const dataSource = ref<TableRow[]>([
+  { key: '1', name: 'John Brown', age: 28, address: 'Seoul', status: 'normal' },
+  { key: '3', name: 'Jane sdf', age: 32, address: 'aa', status: 'normal' },
+    { key: '4', name: 'Jane sfadfds', age: 32, address: 'aa ban', status: 'normal' },
+      { key: '5', name: 'Jansfdfssfe Doe', age: 32, address: 'aaa', status: 'normal' },
+        { key: '6', name: 'asfdfsa Doe', age: 32, address: 'aaaa', status: 'normal' },
+          { key: '7', name: 'asdffds Doe', age: 32, address: 'ee', status: 'normal' },
+            { key: '8', name: 'sadf Doe', age: 32, address: 'sss', status: 'normal' },
+
+])
+
+/**
+ * 검색 상태
+ */
+const searchState = reactive({
+  searchText: '',
+  searchedColumn: '',
+})
+
+
+const handleSearch = (
+  selectedKeys: string[],
+  confirm: () => void,
+  dataIndex: string
+) => {
+  confirm()
+  searchState.searchText = selectedKeys[0]
+  searchState.searchedColumn = dataIndex
+}
+
+type ClearFilters = (param?: { confirm?: boolean; closeDropdown?: boolean }) => void
+
+const handleReset = (clearFilters?: ClearFilters) => {
+  clearFilters?.({ confirm: true })
+  searchState.searchText = ''
+}
+
+/**
+ * 선택
+ */
+const selectedRowKeys = ref<string[]>([])
+
+const selectedRow = computed(() =>
+  dataSource.value.find(r => r.key === selectedRowKeys.value[0])
+)
+
+const rowSelection = computed(() => ({
+  type: 'radio' as const,
+  selectedRowKeys: selectedRowKeys.value,
+  onChange: (keys: string[]) => (selectedRowKeys.value = keys),
+}))
+
+const onRowClick = (record: TableRow) => ({
+  onClick: () => (selectedRowKeys.value = [record.key]),
+})
+
+const clearSelection = () => (selectedRowKeys.value = [])
+
+/**
+ * 삭제
+ */
+const markDelete = () => {
+  if (!selectedRow.value) return
+
+  selectedRow.value.status =
+    selectedRow.value.status === 'new' ? 'new_deleted' : 'deleted'
+}
+
+const hasDeleted = computed(() =>
+  dataSource.value.some(r => r.status === 'deleted' || r.status === 'new_deleted')
+)
+
+const applyDelete = () => {
+  dataSource.value = dataSource.value.filter(
+    r => r.status !== 'deleted' && r.status !== 'new_deleted'
+  )
+  clearSelection()
+}
+
+/**
+ * 추가
+ */
+const isModalOpen = ref(false)
+
+const form = ref({
+  name: '',
+  age: 0,
+  address: '',
+})
+
+const openModal = () => {
+  form.value = { name: '', age: 0, address: '' }
+  isModalOpen.value = true
+}
+
+const handleOk = () => {
+  if (!form.value.name) return
+
+  dataSource.value.unshift({
+    key: Date.now().toString(),
+    ...form.value,
+    status: 'new',
+  })
+
+  isModalOpen.value = false
+}
+
+/**
+ * 컬럼
+ */
+const columns = [
+  {
+    title: 'Name',
+    dataIndex: 'name',
+    key: 'name',
+    customFilterDropdown: true,
+     onFilterDropdownOpenChange: (visible: boolean) => {
+    if (visible) {
+      setTimeout(() => {
+        searchInput.value?.focus()
+      }, 100)
+    }
+  },
+    onFilter: (value: string, record: TableRow) =>
+      record.name.toLowerCase().includes(value.toLowerCase()),
+  },
+  {
+    title: 'Age',
+    dataIndex: 'age',
+    sorter: (a: TableRow, b: TableRow) => a.age - b.age,
+  },
+  {
+    title: 'Address',
+    dataIndex: 'address',
+    key: 'address',
+    customFilterDropdown: true,
+     onFilterDropdownOpenChange: (visible: boolean) => {
+    if (visible) {
+      setTimeout(() => {
+        searchInput.value?.focus()
+      }, 100)
+    }
+  },
+    onFilter: (value: string, record: TableRow) =>
+      record.address.toLowerCase().includes(value.toLowerCase()),
+  },
+  {
+    title: 'Status',
+    dataIndex: 'status',
+    filters: [
+      { text: 'Normal', value: 'normal' },
+      { text: 'New', value: 'new' },
+      { text: 'Deleted', value: 'deleted' },
+      { text: 'New Deleted', value: 'new_deleted' },
+    ],
+    onFilter: (value: string, record: TableRow) => record.status === value,
+  },
 ]
 
-await repo.update_many_exec(query, values)
-
-
-// utils/url.ts
-export function extractPageId(url: string): number | null {
-  const patterns = [
-    /pageId=(\d+)/,
-    /\/pages\/(\d+)\//
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return Number(match[1]);
-  }
-
-  return null; // throw 대신 안전하게
-}
-
-
-<style lang="scss" scoped>
-:deep(.ant-table-tbody) {
-
-  > tr {
-
-    /* 기본 transition 제거 (중요) */
-    > td {
-      transition: none !important;
-    }
-
-    /* 🔴 삭제 */
-    &.row-deleted > td {
-      background-color: #fee2e2 !important;
-      color: #ef4444;
-      text-decoration: line-through;
-    }
-
-    &.row-deleted:hover > td {
-      background-color: #fecaca !important;
-    }
-
-    /* 🟠 신규삭제 */
-    &.row-new-deleted > td {
-      background-color: #ffedd5 !important;
-      color: #f97316;
-      text-decoration: line-through;
-    }
-
-    &.row-new-deleted:hover > td {
-      background-color: #fed7aa !important;
-    }
-
-    /* 🟢 신규 */
-    &.row-new > td {
-      background-color: #ecfdf5 !important;
-      border-left: 4px solid #4ade80;
-    }
-
-    &.row-new:hover > td {
-      background-color: #d1fae5 !important;
-    }
-
-    /* 🔵 선택 */
-    &.row-selected > td {
-      background-color: #dbeafe !important;
-    }
-
-    &.row-selected:hover > td {
-      background-color: #bfdbfe !important;
-    }
-
-    /* 기본 hover */
-    &:not(.row-new):not(.row-deleted):not(.row-new-deleted):hover > td {
-      background-color: #f9fafb !important;
-    }
-  }
-}
-
-/* 🔥 Antd 기본 완전 제거 */
-:deep(.ant-table-tbody > tr:hover > td) {
-  background: unset !important;
-}
-
-:deep(.ant-table-tbody > tr.ant-table-row-selected > td) {
-  background: unset !important;
-}
-</style>
-
+/**
+ * 스타일 class
+ */
 const getRowClassName = (record: TableRow) => {
   const isSelected = selectedRowKeys.value.includes(record.key)
 
@@ -112,491 +269,54 @@ const getRowClassName = (record: TableRow) => {
 
   return cls.trim()
 }
-
-
-
-
-
-
-
-
-
-
-
-
-<style lang="scss" scoped>
-:deep(.ant-table-tbody) {
-  > tr {
-    transition: all 0.15s ease;
-
-    /* 🔵 선택 상태 */
-    &.selected-row > td {
-      background-color: #dbeafe !important; // blue-100
-    }
-
-    &:hover.selected-row > td {
-      background-color: #bfdbfe !important; // blue-200
-    }
-
-    /* 🟢 신규 */
-    &.new-row > td {
-      background-color: #ecfdf5 !important; // green-50
-      border-left: 4px solid #4ade80;
-    }
-
-    &:hover.new-row > td {
-      background-color: #d1fae5 !important; // green-100
-    }
-
-    /* 🔴 삭제 */
-    &.deleted-row > td {
-      background-color: #fee2e2 !important; // red-100
-      color: #ef4444;
-      text-decoration: line-through;
-    }
-
-    &:hover.deleted-row > td {
-      background-color: #fecaca !important; // red-200
-    }
-
-    /* 🟠 신규 후 삭제 */
-    &.new-deleted-row > td {
-      background-color: #ffedd5 !important; // orange-100
-      color: #f97316;
-      text-decoration: line-through;
-    }
-
-    &:hover.new-deleted-row > td {
-      background-color: #fed7aa !important; // orange-200
-    }
-
-    /* 기본 hover */
-    &:hover > td {
-      background-color: #f9fafb;
-    }
-  }
-}
-
-/* 🔥 Antd 기본 hover 제거 */
-:deep(.ant-table-tbody > tr:hover > td) {
-  background: transparent !important;
-}
-
-/* 🔥 선택 색 제거 */
-:deep(.ant-table-tbody > tr.ant-table-row-selected > td) {
-  background: transparent !important;
-}
-</style>
-
-
-
-<style lang="scss" scoped>
-:deep(.ant-table) {
-  border: 1px solid #e5e7eb; // Tailwind gray-200
-
-  .ant-table-container {
-    border-inline-start: 1px solid #e5e7eb;
-    border-top: 1px solid #e5e7eb;
-  }
-
-  .ant-table-cell {
-    border-inline-end: 1px solid #e5e7eb;
-    border-bottom: 1px solid #e5e7eb;
-  }
-}
-</style>
-
-:deep(.ant-table) {
-  border: 1px solid #d1d5db;
-
-  .ant-table-cell {
-    border: 1px solid #d1d5db;
-  }
-}
-
-:deep(.ant-table) {
-  border: 1px solid #e5e7eb;
-
-  .ant-table-cell {
-    border-color: #e5e7eb;
-  }
-}
-
-
-
-const getRowClassName = (record: TableRow) => {
-  const isSelected = selectedRowKeys.value.includes(record.key)
-
-  const base = 'transition-all duration-200'
-
-  switch (record.status) {
-    case 'new':
-      return `
-        bg-green-50 hover:bg-green-100 
-        border-l-4 border-green-400 ${base}
-      `
-
-    case 'deleted':
-      return `
-        bg-red-100 hover:bg-red-200 
-        text-red-500 line-through ${base}
-      `
-
-    case 'new_deleted':
-      return `
-        bg-orange-100 hover:bg-orange-200 
-        text-orange-600 line-through ${base}
-      `
-
-    default:
-      if (isSelected) {
-        return `bg-blue-100 hover:bg-blue-200 ${base}`
-      }
-      return `hover:bg-gray-50 ${base}`
-  }
-}
-
-
-<style lang="scss" scoped>
-:deep(.ant-table-tbody) {
-  > tr {
-    &:hover > td {
-      background: transparent !important;
-    }
-
-    &.ant-table-row-selected > td {
-      background-color: transparent !important;
-    }
-  }
-}
-</style>
-
----------------------------------------------------------------------------
-
-<style lang="scss" scoped>
-/* 🔥 Antd hover 제거 */
-:deep(.ant-table-tbody > tr:hover > td) {
-  background: transparent !important;
-}
-
-/* 🔥 Antd 선택 색 제거 */
-:deep(.ant-table-tbody > tr.ant-table-row-selected > td) {
-  background-color: transparent !important;
-}
-</style>
-
-
-------------------------------------------------------------
-
-
-<template>
-  <a-form
-    ref="formRef"
-    :model="form"
-    :rules="rules"
-    layout="vertical"
-  >
-    <!-- 이름 -->
-    <a-form-item label="Name" name="name">
-      <a-input v-model:value="form.name" />
-    </a-form-item>
-
-    <!-- 🔥 멀티 셀렉트 -->
-    <a-form-item label="Tags" name="tags">
-      <a-select
-        v-model:value="form.tags"
-        mode="multiple"
-        placeholder="태그 선택"
-        :options="options"
-        allow-clear
-      />
-    </a-form-item>
-
-    <!-- 버튼 -->
-    <a-button type="primary" @click="handleSubmit">
-      Submit
-    </a-button>
-  </a-form>
-</template>
-
-<script setup lang="ts">
-import { ref } from 'vue'
-import type { FormInstance } from 'ant-design-vue'
-
-// form
-const formRef = ref<FormInstance>()
-
-const form = ref({
-  name: '',
-  tags: [] as string[],
-})
-
-// 옵션
-const options = [
-  { label: 'Frontend', value: 'frontend' },
-  { label: 'Backend', value: 'backend' },
-  { label: 'DevOps', value: 'devops' },
-]
-
-// 🔥 validation rules
-const rules = {
-  name: [
-    { required: true, message: '이름을 입력하세요' },
-  ],
-  tags: [
-    {
-      required: true,
-      type: 'array',
-      min: 1,
-      message: '최소 1개 이상 선택하세요',
-      trigger: 'change',
-    },
-  ],
-}
-
-// 제출
-const handleSubmit = async () => {
-  try {
-    await formRef.value?.validate()
-    console.log('성공:', form.value)
-  } catch (err) {
-    console.log('검증 실패')
-  }
-}
 </script>
 
-
-
-
-
-<template>
-  <div class="p-6">
-    <!-- 버튼 영역 -->
-    <div class="mb-4 flex gap-2">
-      <a-button type="primary" @click="openModal">
-        Add Row
-      </a-button>
-
-      <a-button
-        danger
-        :disabled="!selectedRow"
-        @click="markDelete"
-      >
-        Delete Selected
-      </a-button>
-
-      <a-button
-        :disabled="!hasDeleted"
-        @click="applyDelete"
-      >
-        Apply Delete
-      </a-button>
-    </div>
-
-    <!-- 선택된 row 표시 -->
-    <div class="mb-4 text-sm text-gray-600">
-      Selected:
-      <span v-if="selectedRow">
-        {{ selectedRow.name }} ({{ selectedRow.age }})
-      </span>
-      <span v-else>None</span>
-    </div>
-
-    <!-- 테이블 -->
-    <a-table
-    bordered
-      :columns="columns"
-      :data-source="dataSource"
-      :row-selection="rowSelection"
-      :row-class-name="getRowClassName"
-      :custom-row="onRowClick"
-      :pagination="false"
-      rowKey="key"
-    />
-
-    <!-- 모달 -->
-    <a-modal
-      v-model:open="isModalOpen"
-      title="Add New User"
-      @ok="handleOk"
-      @cancel="handleCancel"
-    >
-      <a-form layout="vertical">
-        <a-form-item label="Name">
-          <a-input v-model:value="form.name" />
-        </a-form-item>
-
-        <a-form-item label="Age">
-          <a-input-number
-            v-model:value="form.age"
-            :min="0"
-            style="width: 100%"
-          />
-        </a-form-item>
-      </a-form>
-    </a-modal>
-  </div>
-</template>
-
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-
-interface TableRow {
-  key: string
-  name: string
-  age: number
-  isNew?: boolean
-  isDeleted?: boolean
+<style lang="scss" scoped>
+:deep(.ant-table-tbody > tr > td) {
+  transition: none !important;
 }
 
-// 컬럼
-const columns = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age' },
-]
-
-// 데이터
-const dataSource = ref<TableRow[]>([
-  { key: '1', name: 'John', age: 28 },
-  { key: '2', name: 'Jane', age: 32 },
-])
-
-// 선택 상태
-const selectedRowKeys = ref<string[]>([])
-
-const selectedRow = computed(() =>
-  dataSource.value.find(row => row.key === selectedRowKeys.value[0])
-)
-
-// 🔥 selection (반드시 computed)
-const rowSelection = computed(() => ({
-  type: 'radio' as const,
-  selectedRowKeys: selectedRowKeys.value,
-  onChange: (keys: string[]) => {
-    selectedRowKeys.value = keys
-  },
-}))
-
-// row 클릭 선택
-const onRowClick = (record: TableRow) => ({
-  onClick: () => {
-    selectedRowKeys.value = [record.key]
-  },
-})
-
-/**
- * 🔴 Soft Delete
- */
-const markDelete = () => {
-  if (!selectedRow.value) return
-  selectedRow.value.isDeleted = true
+/* 상태별 */
+:deep(.row-deleted > td) {
+  background: #fee2e2 !important;
 }
 
-const hasDeleted = computed(() =>
-  dataSource.value.some(row => row.isDeleted)
-)
-
-const applyDelete = () => {
-  dataSource.value = dataSource.value.filter(row => !row.isDeleted)
-  selectedRowKeys.value = []
+:deep(.row-deleted:hover > td) {
+  background: #fecaca !important;
 }
 
-/**
- * 🟢 Modal
- */
-const isModalOpen = ref(false)
-
-const form = ref({
-  name: '',
-  age: 0,
-})
-
-const openModal = () => {
-  form.value = { name: '', age: 0 }
-  isModalOpen.value = true
+:deep(.row-new-deleted > td) {
+  background: #ffedd5 !important;
 }
 
-const handleOk = () => {
-  if (!form.value.name) return
-
-  const newRow: TableRow = {
-    key: Date.now().toString(),
-    name: form.value.name,
-    age: form.value.age,
-    isNew: true,
-  }
-
-  dataSource.value.unshift(newRow)
-
-  // 자동 선택
-  selectedRowKeys.value = [newRow.key]
-
-  isModalOpen.value = false
+:deep(.row-new-deleted:hover > td) {
+  background: #fed7aa !important;
 }
 
-const handleCancel = () => {
-  isModalOpen.value = false
+:deep(.row-new > td) {
+  background: #ecfdf5 !important;
 }
 
-/**
- * 🎨 row 스타일 (hover 포함)
- */
-const getRowClassName = (record: TableRow) => {
-  const isSelected = selectedRowKeys.value.includes(record.key)
-
-  // 🔴 삭제 (hover 유지)
-  if (record.isDeleted) {
-    return `
-      bg-red-100 
-      hover:bg-red-200 
-      text-red-500 
-      line-through 
-      transition-all duration-200
-    `
-  }
-
-  // 🟢 신규 + 선택
-  if (record.isNew && isSelected) {
-    return `
-      bg-green-200 
-      hover:bg-green-300 
-      border-l-4 border-green-500 
-      transition-all duration-200
-    `
-  }
-
-  // 🟢 신규
-  if (record.isNew) {
-    return `
-      bg-green-50 
-      hover:bg-green-100 
-      border-l-4 border-green-400 
-      transition-all duration-200
-    `
-  }
-
-  // 🔵 선택
-  if (isSelected) {
-    return `
-      bg-blue-100 
-      hover:bg-blue-200 
-      transition-all duration-200
-    `
-  }
-
-  // 기본
-  return 'hover:bg-gray-50 transition-all duration-200'
-}
-</script>
-
-<style>
-/* 🔥 Antd 기본 hover 제거 */
-.ant-table-tbody > tr:hover > td {
-  background: transparent !important;
+:deep(.row-new:hover > td) {
+  background: #d1fae5 !important;
 }
 
-/* 🔥 Antd 선택 색 제거 */
-.ant-table-tbody > tr.ant-table-row-selected > td {
-  background-color: transparent !important;
+:deep(.row-selected > td) {
+  background: #dbeafe !important;
+}
+
+:deep(.row-selected:hover > td) {
+  background: #bfdbfe !important;
+}
+
+/* 기본 hover 제거 */
+:deep(.ant-table-tbody > tr:hover > td) {
+  background: unset !important;
+}
+
+/* highlight */
+.highlight {
+  background-color: #ffc069;
+  padding: 0;
 }
 </style>
