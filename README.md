@@ -371,3 +371,220 @@ const getRowClassName = (record: TableRow) => {
   background-color: #ffc069;
 }
 </style>
+
+
+
+----------------------------------------------------------------------
+
+focus
+
+<template>
+  <div class="p-6">
+
+    <!-- 상태 표시 -->
+    <div class="mb-4 text-sm">
+      <div>
+        Active:
+        <span v-if="activeRowKey">{{ activeRowKey }}</span>
+        <span v-else>None</span>
+      </div>
+
+      <div>
+        Checked:
+        <span v-if="checkedRowKeys.length">
+          {{ checkedRowKeys.join(', ') }}
+        </span>
+        <span v-else>None</span>
+      </div>
+    </div>
+
+    <!-- 버튼 -->
+    <div class="mb-4 flex gap-2">
+      <a-button type="primary" >Add Row</a-button>
+      <a-button danger :disabled="!activeRow" @click="markDelete">Delete</a-button>
+      <a-button @click="clearSelection">Clear</a-button>
+    </div>
+
+    <!-- 테이블 -->
+    <a-table
+      :columns="columns"
+      :data-source="dataSource"
+      :row-selection="rowSelection"
+      :custom-row="onRowClick"
+      rowKey="key"
+      :pagination="false"
+    >
+
+      <!-- 🔍 필터 dropdown -->
+      <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+        <div class="p-2">
+
+          <a-input
+            :ref="el => {
+              if (el) searchInputs[column.dataIndex] = el
+            }"
+            :placeholder="`Search ${column.dataIndex}`"
+            :value="selectedKeys[0]"
+            @update:value="val => setSelectedKeys(val ? [val] : [])"
+            @pressEnter="handleSearch(selectedKeys, confirm, column.dataIndex)"
+          />
+
+          <div class="flex gap-2 mt-2">
+            <a-button size="small" type="primary"
+              @click="handleSearch(selectedKeys, confirm, column.dataIndex)">
+              Search
+            </a-button>
+
+            <a-button size="small"
+              @click="handleReset(clearFilters)">
+              Reset
+            </a-button>
+          </div>
+
+        </div>
+      </template>
+
+      <!-- 아이콘 -->
+      <template #customFilterIcon="{ filtered }">
+        <SearchOutlined
+          :style="{
+            fontSize: '18px',
+            color: filtered ? '#1677ff' : '#999'
+          }"
+        />
+      </template>
+
+    </a-table>
+
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, reactive, nextTick } from 'vue'
+import { SearchOutlined } from '@ant-design/icons-vue'
+
+type RowStatus = 'normal' | 'new' | 'deleted' | 'new_deleted'
+
+interface TableRow {
+  key: string
+  name: string
+  age: number
+  address: string
+  status?: RowStatus
+}
+
+/**
+ * 데이터
+ */
+const dataSource = ref<TableRow[]>([
+  { key: '1', name: 'John', age: 28, address: 'Seoul', status: 'normal' },
+  { key: '2', name: 'Jane', age: 32, address: 'Busan', status: 'normal' },
+])
+
+/**
+ * 검색 상태
+ */
+const searchState = reactive({
+  searchText: '',
+  searchedColumn: '',
+})
+
+const handleSearch = (selectedKeys, confirm, dataIndex) => {
+  confirm()
+  searchState.searchText = selectedKeys[0]
+  searchState.searchedColumn = dataIndex
+}
+
+const handleReset = (clearFilters?: (param?: { confirm?: boolean }) => void) => {
+  clearFilters?.({ confirm: true })
+  searchState.searchText = ''
+}
+
+/**
+ * ✅ 핵심: 컬럼별 input ref
+ */
+const searchInputs = ref<Record<string, any>>({})
+
+/**
+ * ✅ focus 함수 (핵심)
+ */
+const focusInput = (key: string) => {
+  nextTick(() => {
+    setTimeout(() => {
+      const input = searchInputs.value[key]
+      input?.input?.focus()
+    }, 50)
+  })
+}
+/**
+ * 선택
+ */
+const checkedRowKeys = ref<string[]>([])
+const activeRowKey = ref<string | null>(null)
+
+const activeRow = computed(() =>
+  dataSource.value.find(r => r.key === activeRowKey.value)
+)
+
+const rowSelection = computed(() => ({
+  type: 'checkbox' as const,
+  selectedRowKeys: checkedRowKeys.value,
+  onChange: (keys: string[]) => {
+    checkedRowKeys.value = keys
+  },
+  getCheckboxProps: (record: TableRow) => ({
+    disabled: record.status !== 'normal',
+  }),
+}))
+
+const onRowClick = (record: TableRow) => ({
+  onClick: () => {
+    activeRowKey.value = record.key
+  },
+})
+
+const clearSelection = () => {
+  checkedRowKeys.value = []
+  activeRowKey.value = null
+}
+
+/**
+ * 삭제
+ */
+const markDelete = () => {
+  if (!activeRow.value) return
+  activeRow.value.status = 'deleted'
+}
+
+/**
+ * 컬럼 (🔥 핵심 focus 적용)
+ */
+const columns = [
+  {
+    title: 'Name',
+    dataIndex: 'name',
+    key: 'name',
+    customFilterDropdown: true,
+    onFilterDropdownOpenChange: (visible: boolean) => {
+      if (visible) focusInput('name')
+    },
+    onFilter: (value, record) =>
+      record.name.toLowerCase().includes(value.toLowerCase()),
+  },
+  {
+    title: 'Age',
+    dataIndex: 'age',
+  },
+  {
+    title: 'Address',
+    dataIndex: 'address',
+    key: 'address',
+    customFilterDropdown: true,
+    onFilterDropdownOpenChange: (visible: boolean) => {
+      if (visible) focusInput('address')
+    },
+    onFilter: (value, record) =>
+      record.address.toLowerCase().includes(value.toLowerCase()),
+  },
+]
+</script>
