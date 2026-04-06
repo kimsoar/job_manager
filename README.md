@@ -1,37 +1,41 @@
-
-import { onMounted, onBeforeUnmount } from 'vue'
-
-let timer: number | null = null
-
-const handleResize = () => {
-  if (timer) clearTimeout(timer)
-
-  timer = window.setTimeout(() => {
-    refreshTable()
-  }, 150)
-}
-
-onMounted(() => {
-  window.addEventListener('resize', handleResize)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize)
-})
-
-
-
 <template>
   <div class="p-6">
-    <!-- 버튼 -->
-    <div class="mb-4 flex gap-2">
-      <a-button type="primary" @click="openModal">Add Row</a-button>
-      <a-button danger :disabled="!selectedRow" @click="markDelete">Delete</a-button>
-      <a-button :disabled="!hasDeleted" @click="applyDelete">Apply Delete</a-button>
-      <a-button @click="clearSelection">Clear</a-button>
+
+    <!-- 🔹 상태 표시 -->
+    <div class="mb-4 text-sm">
+      <div>
+        Active (삭제 대상):
+        <span v-if="activeRowKey">{{ activeRowKey }}</span>
+        <span v-else>None</span>
+      </div>
+
+      <div>
+        Checked Keys:
+        <span v-if="checkedRowKeys.length">
+          {{ checkedRowKeys.join(', ') }}
+        </span>
+        <span v-else>None</span>
+      </div>
     </div>
 
-    <!-- 테이블 -->
+    <!-- 🔹 버튼 -->
+    <div class="mb-4 flex gap-2">
+      <a-button type="primary" @click="openModal">Add Row</a-button>
+
+      <a-button danger :disabled="!activeRow" @click="markDelete">
+        Delete
+      </a-button>
+
+      <a-button :disabled="!hasDeleted" @click="applyDelete">
+        Apply Delete
+      </a-button>
+
+      <a-button @click="clearSelection">
+        Clear
+      </a-button>
+    </div>
+
+    <!-- 🔹 테이블 -->
     <a-table
       :columns="columns"
       :data-source="dataSource"
@@ -41,39 +45,66 @@ onBeforeUnmount(() => {
       rowKey="key"
       :pagination="false"
     >
-      <!-- 🔍 검색 필터 UI -->
+
+
+      <!-- 🔍 필터 dropdown -->
       <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
-         <div style="padding: 8px">
-        <a-input
-          ref="searchInput"
-          :placeholder="`Search ${column.dataIndex}`"
-          :value="selectedKeys[0]"
-          style="width: 188px; margin-bottom: 8px; display: block"
-          @pressEnter="handleSearch(selectedKeys, confirm, column.dataIndex)"
-          @change="(e: Event) => handleInputChange(e, setSelectedKeys)"
-        />
-        <a-button
-          type="primary"
-          size="small"
-          style="width: 90px; margin-right: 8px"
-          @click="handleSearch(selectedKeys, confirm, column.dataIndex)"
-        >
-          <template #icon><SearchOutlined /></template>
-          Search
-        </a-button>
-        <a-button size="small" style="width: 90px" @click="handleReset(clearFilters)">
-          Reset
-        </a-button>
-      </div>
+        <div class="p-2">
+          <a-input
+            ref="searchInput"
+            :placeholder="`Search ${column.dataIndex}`"
+            :value="selectedKeys[0]"
+            @update:value="val => setSelectedKeys(val ? [val] : [])"
+            @pressEnter="handleSearch(selectedKeys, confirm, column.dataIndex)"
+          />
+
+          <div class="flex gap-2 mt-2">
+            <a-button size="small" type="primary"
+              @click="handleSearch(selectedKeys, confirm, column.dataIndex)">
+              Search
+            </a-button>
+
+            <a-button size="small"
+              @click="handleReset(clearFilters)">
+              Reset
+            </a-button>
+          </div>
+        </div>
       </template>
 
-      <!-- 🔍 필터 아이콘 -->
+      <!-- 🔍 아이콘 -->
       <template #customFilterIcon="{ filtered }">
         <SearchOutlined :style="{ color: filtered ? '#108ee9' : undefined }" />
       </template>
+
+      <!-- 🔥 highlight -->
+      <template #bodyCell="{ text, column }">
+        
+        <span v-if="searchState.searchText && searchState.searchedColumn === column.dataIndex">
+          <template
+            v-for="(fragment, i) in text
+              ?.toString()
+              .split(new RegExp(`(?<=${searchState.searchText})|(?=${searchState.searchText})`, 'i'))"
+          >
+            <mark
+              v-if="fragment.toLowerCase() === searchState.searchText.toLowerCase()"
+              :key="i"
+              class="highlight"
+            >
+              {{ fragment }}
+            </mark>
+            <template v-else>{{ fragment }}</template>
+          </template>
+        </span>
+
+        <template v-else>
+          {{ text }}
+        </template>
+      </template>
+
     </a-table>
 
-    <!-- 모달 -->
+    <!-- 🔹 모달 -->
     <a-modal v-model:open="isModalOpen" title="Add User" @ok="handleOk">
       <a-form layout="vertical">
         <a-form-item label="Name">
@@ -89,6 +120,7 @@ onBeforeUnmount(() => {
         </a-form-item>
       </a-form>
     </a-modal>
+
   </div>
 </template>
 
@@ -97,7 +129,7 @@ import { ref, computed, reactive } from 'vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 
 type RowStatus = 'normal' | 'new' | 'deleted' | 'new_deleted'
-const searchInput = ref<any>(null)
+
 interface TableRow {
   key: string
   name: string
@@ -106,83 +138,87 @@ interface TableRow {
   status?: RowStatus
 }
 
-const handleInputChange = (
-  e: Event,
-  setSelectedKeys: (keys: string[]) => void
-) => {
-  const target = e.target as HTMLInputElement
-  setSelectedKeys(target.value ? [target.value] : [])
-}
-
 /**
  * 데이터
  */
 const dataSource = ref<TableRow[]>([
   { key: '1', name: 'John Brown', age: 28, address: 'Seoul', status: 'normal' },
-  { key: '3', name: 'Jane sdf', age: 32, address: 'aa', status: 'normal' },
-    { key: '4', name: 'Jane sfadfds', age: 32, address: 'aa ban', status: 'normal' },
-      { key: '5', name: 'Jansfdfssfe Doe', age: 32, address: 'aaa', status: 'normal' },
-        { key: '6', name: 'asfdfsa Doe', age: 32, address: 'aaaa', status: 'normal' },
-          { key: '7', name: 'asdffds Doe', age: 32, address: 'ee', status: 'normal' },
-            { key: '8', name: 'sadf Doe', age: 32, address: 'sss', status: 'normal' },
-
+  { key: '2', name: 'Jane Doe', age: 32, address: 'Busan', status: 'normal' },
+   { key: '3', name: 'John Brown', age: 28, address: 'Seoul', status: 'normal' },
+  { key: '4', name: 'Jane Doe', age: 32, address: 'Busan', status: 'normal' },
+   { key: '5', name: 'John Brown', age: 28, address: 'Seoul', status: 'normal' },
+  { key: '6', name: 'Jane Doe', age: 32, address: 'Busan', status: 'normal' },
 ])
 
 /**
- * 검색 상태
+ * 🔍 검색 상태
  */
 const searchState = reactive({
   searchText: '',
   searchedColumn: '',
 })
 
-
-const handleSearch = (
-  selectedKeys: string[],
-  confirm: () => void,
-  dataIndex: string
-) => {
+const handleSearch = (selectedKeys, confirm, dataIndex) => {
   confirm()
   searchState.searchText = selectedKeys[0]
   searchState.searchedColumn = dataIndex
 }
 
-type ClearFilters = (param?: { confirm?: boolean; closeDropdown?: boolean }) => void
-
-const handleReset = (clearFilters?: ClearFilters) => {
+const handleReset = (clearFilters?: (param?: { confirm?: boolean }) => void) => {
   clearFilters?.({ confirm: true })
   searchState.searchText = ''
 }
 
 /**
- * 선택
+ * ✅ 선택 구조
  */
-const selectedRowKeys = ref<string[]>([])
+const checkedRowKeys = ref<string[]>([])   // checkbox
+const activeRowKey = ref<string | null>(null) // 삭제 대상
 
-const selectedRow = computed(() =>
-  dataSource.value.find(r => r.key === selectedRowKeys.value[0])
+const activeRow = computed(() =>
+  dataSource.value.find(r => r.key === activeRowKey.value)
 )
 
+/**
+ * checkbox 선택
+ */
 const rowSelection = computed(() => ({
-  type: 'radio' as const,
-  selectedRowKeys: selectedRowKeys.value,
-  onChange: (keys: string[]) => (selectedRowKeys.value = keys),
+  type: 'checkbox' as const,
+  selectedRowKeys: checkedRowKeys.value,
+  onChange: (keys: string[]) => {
+    checkedRowKeys.value = keys
+  },
+   // 🔥 핵심
+  getCheckboxProps: (record: TableRow) => ({
+  disabled: record.status !== 'normal',
+  title: record.status !== 'normal'
+    ? 'normal 상태만 선택 가능합니다'
+    : '',
+})
 }))
 
+/**
+ * row 클릭 → 삭제 대상
+ */
 const onRowClick = (record: TableRow) => ({
-  onClick: () => (selectedRowKeys.value = [record.key]),
+  onClick: () => {
+    activeRowKey.value = record.key
+  },
 })
 
-const clearSelection = () => (selectedRowKeys.value = [])
+const clearSelection = () => {
+  checkedRowKeys.value = []
+  activeRowKey.value = null
+}
 
 /**
  * 삭제
  */
 const markDelete = () => {
-  if (!selectedRow.value) return
+  if (!activeRow.value) return
 
-  selectedRow.value.status =
-    selectedRow.value.status === 'new' ? 'new_deleted' : 'deleted'
+  activeRow.value.status =
+    activeRow.value.status === 'new' ? 'new_deleted' : 'deleted'
 }
 
 const hasDeleted = computed(() =>
@@ -233,34 +269,27 @@ const columns = [
     dataIndex: 'name',
     key: 'name',
     customFilterDropdown: true,
-     onFilterDropdownOpenChange: (visible: boolean) => {
-    if (visible) {
-      setTimeout(() => {
-        searchInput.value?.focus()
-      }, 100)
-    }
-  },
-    onFilter: (value: string, record: TableRow) =>
+    onFilterDropdownOpenChange: (visible: boolean) => {
+      if (visible) {
+        requestAnimationFrame(() => {
+          searchInput.value?.focus()
+        })
+      }
+    },
+    onFilter: (value, record) =>
       record.name.toLowerCase().includes(value.toLowerCase()),
   },
   {
     title: 'Age',
     dataIndex: 'age',
-    sorter: (a: TableRow, b: TableRow) => a.age - b.age,
+    sorter: (a, b) => a.age - b.age,
   },
   {
     title: 'Address',
     dataIndex: 'address',
     key: 'address',
     customFilterDropdown: true,
-     onFilterDropdownOpenChange: (visible: boolean) => {
-    if (visible) {
-      setTimeout(() => {
-        searchInput.value?.focus()
-      }, 100)
-    }
-  },
-    onFilter: (value: string, record: TableRow) =>
+    onFilter: (value, record) =>
       record.address.toLowerCase().includes(value.toLowerCase()),
   },
   {
@@ -272,15 +301,17 @@ const columns = [
       { text: 'Deleted', value: 'deleted' },
       { text: 'New Deleted', value: 'new_deleted' },
     ],
-    onFilter: (value: string, record: TableRow) => record.status === value,
+    onFilter: (value, record) => record.status === value,
   },
 ]
 
+const searchInput = ref<any>(null)
+
 /**
- * 스타일 class
+ * 스타일
  */
 const getRowClassName = (record: TableRow) => {
-  const isSelected = selectedRowKeys.value.includes(record.key)
+  const isActive = record.key === activeRowKey.value
 
   let cls = ''
 
@@ -288,22 +319,23 @@ const getRowClassName = (record: TableRow) => {
   else if (record.status === 'new_deleted') cls = 'row-new-deleted'
   else if (record.status === 'new') cls = 'row-new'
 
-  if (isSelected) cls += ' row-selected'
+  if (isActive) cls += ' row-selected'
 
+ 
   return cls.trim()
 }
 </script>
 
 <style lang="scss" scoped>
+
 :deep(.ant-table-tbody > tr > td) {
   transition: none !important;
 }
 
-/* 상태별 */
+/* 상태 */
 :deep(.row-deleted > td) {
   background: #fee2e2 !important;
 }
-
 :deep(.row-deleted:hover > td) {
   background: #fecaca !important;
 }
@@ -311,7 +343,6 @@ const getRowClassName = (record: TableRow) => {
 :deep(.row-new-deleted > td) {
   background: #ffedd5 !important;
 }
-
 :deep(.row-new-deleted:hover > td) {
   background: #fed7aa !important;
 }
@@ -319,7 +350,6 @@ const getRowClassName = (record: TableRow) => {
 :deep(.row-new > td) {
   background: #ecfdf5 !important;
 }
-
 :deep(.row-new:hover > td) {
   background: #d1fae5 !important;
 }
@@ -327,7 +357,6 @@ const getRowClassName = (record: TableRow) => {
 :deep(.row-selected > td) {
   background: #dbeafe !important;
 }
-
 :deep(.row-selected:hover > td) {
   background: #bfdbfe !important;
 }
@@ -340,6 +369,5 @@ const getRowClassName = (record: TableRow) => {
 /* highlight */
 .highlight {
   background-color: #ffc069;
-  padding: 0;
 }
 </style>
