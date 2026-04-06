@@ -1,3 +1,26 @@
+
+import { onMounted, onBeforeUnmount } from 'vue'
+
+let timer: number | null = null
+
+const handleResize = () => {
+  if (timer) clearTimeout(timer)
+
+  timer = window.setTimeout(() => {
+    refreshTable()
+  }, 150)
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+})
+
+
+
 <template>
   <div class="p-6">
     <!-- 버튼 -->
