@@ -1,4 +1,21 @@
 <service>
+  <id>fastapi-service</id>
+  <name>FastAPI Service</name>
+
+  <executable>C:\app\venv\Scripts\python.exe</executable>
+
+  <arguments>
+    -m uvicorn main:app --host 0.0.0.0 --port 8000
+  </arguments>
+
+  <workingdirectory>C:\app</workingdirectory>
+
+  <log mode="roll"/>
+</service>
+
+
+
+<service>
   <id>springboot-app</id>
   <name>SpringBoot App</name>
 
