@@ -1,3 +1,23 @@
+<service>
+  <id>springboot-app</id>
+  <name>SpringBoot App</name>
+
+  <executable>java</executable>
+
+  <arguments>
+    -Xms512m 
+    -Xmx1024m 
+    -XX:+UseG1GC 
+    -Dspring.profiles.active=prod 
+    -Dfile.encoding=UTF-8 
+    -jar app.jar
+  </arguments>
+
+  <log mode="roll" />
+</service>
+
+
+
 <template>
   <div class="p-6">
 
