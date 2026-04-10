@@ -1,3 +1,19 @@
+
+<service>
+  <id>spring-service</id>
+
+  <executable>java</executable>
+
+  <arguments>
+    -Dfile.encoding=UTF-8
+    -Dsun.jnu.encoding=UTF-8
+    -Duser.timezone=Asia/Seoul
+    -jar app.jar
+  </arguments>
+
+  <log mode="roll"/>
+</service>
+
 <env name="PYTHONIOENCODING" value="utf-8"/>
 <env name="PYTHONUTF8" value="1"/>
 
