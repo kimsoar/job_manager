@@ -1,3 +1,8 @@
+<env name="PYTHONIOENCODING" value="utf-8"/>
+<env name="PYTHONUTF8" value="1"/>
+
+
+
 <service>
   <id>fastapi-service</id>
   <name>FastAPI Service</name>
