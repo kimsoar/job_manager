@@ -1,3 +1,31 @@
+🔥 최종 추천 (정리)
+
+👉 이걸 그냥 쓰면 됨
+
+SELECT
+    rootId,
+    COUNT(*) FILTER (WHERE status = 'ok')   AS ok_cnt,
+    COUNT(*) FILTER (WHERE status = 'skip') AS skip_cnt,
+    COUNT(*) FILTER (WHERE status = 'fail') AS fail_cnt,
+    COUNT(*) AS total_cnt
+FROM your_table
+GROUP BY rootId;
+👉 추가로 중요한 질문 (성능 2배 차이 날 수 있음)
+
+하나만 확인해줘:
+👉 테이블 DISTRIBUTED BY 뭐로 되어있어?
+
+rootId면 → 이미 최적 상태
+아니면 → 성능 크게 손해 보고 있을 가능성 있음
+
+원하면 **
+실행계획(EXPLAIN) 기준으로 병목 분석**도 해줄게.
+
+
+
+--------------
+
+
 :deep(.ant-table-row-expand-icon-cell) {
   text-align: center !important;
   vertical-align: middle;
