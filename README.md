@@ -16,7 +16,22 @@ const expandableConfig = {
   rowExpandable: (record: TableRow) => record.key !== '1', // 🔥 조건
 }
 
+<style scoped lang="scss">
+:deep(.ant-table-row-expand-icon-cell) {
+  text-align: center;
+}
 
+:deep(.ant-table-row-expand-icon) {
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  line-height: 22px;
+  transform: scale(1.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+</style>
 
 5️⃣ 진짜 문제 상황 체크리스트
 
