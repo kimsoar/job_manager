@@ -1,3 +1,23 @@
+:deep(.ant-table-row-expand-icon-cell) {
+  text-align: center !important;
+  vertical-align: middle;
+}
+
+
+<a-table
+  :expandable="{
+    columnWidth: 60,
+    expandColumnIndex: 0
+  }"
+/>
+
+
+const expandableConfig = {
+  rowExpandable: (record: TableRow) => record.key !== '1', // 🔥 조건
+}
+
+
+
 5️⃣ 진짜 문제 상황 체크리스트
 
 다음 중 하나면 문제다:
