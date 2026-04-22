@@ -1,4 +1,37 @@
 // composables/useResponsive.ts
+import { useMediaQuery } from '@vueuse/core'
+
+export function useResponsive() {
+  // Tailwind 기준 그대로 사용
+  const sm = useMediaQuery('(min-width: 640px)')
+  const md = useMediaQuery('(min-width: 768px)')
+  const lg = useMediaQuery('(min-width: 1024px)')
+  const xl = useMediaQuery('(min-width: 1280px)')
+  const xxl = useMediaQuery('(min-width: 1536px)')
+
+  // 실사용용 (가독성 좋게)
+  const isMobile = useMediaQuery('(max-width: 767px)')
+  const isTablet = useMediaQuery('(min-width: 768px) and (max-width: 1023px)')
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+
+  return {
+    // raw (tailwind 그대로)
+    sm,
+    md,
+    lg,
+    xl,
+    xxl,
+
+    // semantic
+    isMobile,
+    isTablet,
+    isDesktop
+  }
+}
+
+
+
+// composables/useResponsive.ts
 import { computed } from 'vue'
 import { useWindowSize } from '@vueuse/core'
 
