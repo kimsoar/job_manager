@@ -1,3 +1,17 @@
+// composables/useResponsive.ts
+import { computed } from 'vue'
+import { useWindowSize } from '@vueuse/core'
+
+export function useResponsive() {
+  const { width } = useWindowSize()
+
+  const isMobile = computed(() => width.value < 768)
+
+  return { isMobile }
+}
+
+
+
 🔥 최종 추천 (정리)
 
 👉 이걸 그냥 쓰면 됨
