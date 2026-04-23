@@ -1,180 +1,208 @@
-// composables/useResponsive.ts
-import { useMediaQuery } from '@vueuse/core'
+<template>
+  <a-button @click="changeFruitFilter">Change Fruit Filter</a-button>
+  <a-button @click="changeNameFilter">Change Name Filter</a-button>
 
-export function useResponsive() {
-  // Tailwind 기준 그대로 사용
-  const sm = useMediaQuery('(min-width: 640px)')
-  const md = useMediaQuery('(min-width: 768px)')
-  const lg = useMediaQuery('(min-width: 1024px)')
-  const xl = useMediaQuery('(min-width: 1280px)')
-  const xxl = useMediaQuery('(min-width: 1536px)')
+  <a-table
+    :columns="columns"
+    :data-source="data"
+    @resizeColumn="handleResizeColumn"
+  >
+    <!-- Header -->
+    <template #headerCell="{ column }">
+      <template v-if="column.key === 'name'">
+        <span>
+          <smile-outlined />
+          Name
+        </span>
+      </template>
+    </template>
 
-  // 실사용용 (가독성 좋게)
-  const isMobile = useMediaQuery('(max-width: 767px)')
-  const isTablet = useMediaQuery('(min-width: 768px) and (max-width: 1023px)')
-  const isDesktop = useMediaQuery('(min-width: 1024px)')
+    <!-- Body -->
+    <template #bodyCell="{ column, record }">
+      <template v-if="column.key === 'name'">
+        <a>{{ record.name }}</a>
+      </template>
 
-  return {
-    // raw (tailwind 그대로)
-    sm,
-    md,
-    lg,
-    xl,
-    xxl,
+      <template v-else-if="column.key === 'tags'">
+        <span>
+          <a-tag
+            v-for="tag in record.tags"
+            :key="tag"
+            :color="tag === 'loser' ? 'volcano' : tag.length > 5 ? 'geekblue' : 'green'"
+          >
+            {{ tag.toUpperCase() }}
+          </a-tag>
+        </span>
+      </template>
 
-    // semantic
-    isMobile,
-    isTablet,
-    isDesktop
-  }
+      <template v-else-if="column.key === 'action'">
+        <span>
+          <a>Invite 一 {{ record.name }}</a>
+          <a-divider type="vertical" />
+          <a>Delete</a>
+          <a-divider type="vertical" />
+          <a class="ant-dropdown-link">
+            More actions
+            <down-outlined />
+          </a>
+        </span>
+      </template>
+    </template>
+  </a-table>
+</template>
+
+<script lang="ts" setup>
+import { ref, computed, watch } from 'vue';
+import { SmileOutlined, DownOutlined } from '@ant-design/icons-vue';
+import type { TableColumnsType } from 'ant-design-vue';
+
+/* =========================
+ * 데이터
+ * ========================= */
+const data = [
+  {
+    key: '1',
+    name: 'John Brown',
+    age: 32,
+    address: 'New York No. 1 Lake Park',
+    tags: ['nice', 'developer'],
+    fruit: 'Apple',
+  },
+  {
+    key: '2',
+    name: 'Jim Green',
+    age: 42,
+    address: 'London No. 1 Lake Park',
+    tags: ['loser'],
+    fruit: 'Banana',
+  },
+  {
+    key: '3',
+    name: 'Joe Black',
+    age: 32,
+    address: 'Sidney No. 1 Lake Park',
+    tags: ['cool', 'teacher'],
+    fruit: 'Cherry',
+  },
+];
+
+/* =========================
+ * Filter 상태
+ * ========================= */
+const fruitData = ref<string[]>([]);
+const nameData = ref<string[]>([]);
+
+const fruitFilter = computed(() =>
+  fruitData.value.map(fruit => ({ text: fruit, value: fruit }))
+);
+
+const nameFilter = computed(() =>
+  nameData.value.map(name => ({ text: name, value: name }))
+);
+
+/* =========================
+ * Column 정의 (정적)
+ * ========================= */
+
+type ColumnItem = {
+  key?: string;
+  dataIndex?: string;
+  title?: string;
+  width?: number;
+  minWidth?: number;
+  maxWidth?: number;
+  resizable?: boolean;
+  filterSearch?: boolean;
+  onFilter?: (value: any, record: any) => boolean;
+  filters?: { text: string; value: string }[];
+};
+
+const columnsData = ref<ColumnItem[]>([
+  {
+    dataIndex: 'name',
+    key: 'name',
+    resizable: true,
+    width: 150,
+    filterSearch: true,
+    onFilter: (value, record: any) => record.name === value,
+  },
+  {
+    title: 'Age',
+    dataIndex: 'age',
+    key: 'age',
+    resizable: true,
+    width: 100,
+    minWidth: 100,
+    maxWidth: 200,
+  },
+  {
+    title: 'Address',
+    dataIndex: 'address',
+    key: 'address',
+  },
+  {
+    title: 'Fruit',
+    dataIndex: 'fruit',
+    key: 'fruit',
+    filterSearch: true,
+    onFilter: (value, record: any) => record.fruit === value,
+  },
+  {
+    title: 'Tags',
+    key: 'tags',
+    dataIndex: 'tags',
+  },
+  {
+    title: 'Action',
+    key: 'action',
+  },
+]);
+
+/* =========================
+ * 동적 Filter 매핑 (확장 가능 구조)
+ * ========================= */
+const filterMap = {
+  fruit: fruitFilter,
+  name: nameFilter,
+};
+
+/* =========================
+ * Columns (최종)
+ * ========================= */
+const columns = ref<TableColumnsType>([]);
+
+const buildColumns = () => {
+  const cols = columnsData.value.map(col => {
+    const c = { ...col };
+
+    const key = c.key as keyof typeof filterMap;
+    if (filterMap[key]) {
+      c.filters = filterMap[key].value;
+    }
+
+    return c;
+  });
+
+  columns.value = cols as TableColumnsType;
+};
+
+/* =========================
+ * 반응성 연결
+ * ========================= */
+watch([fruitFilter, nameFilter], buildColumns, { immediate: true });
+
+/* =========================
+ * 이벤트
+ * ========================= */
+function handleResizeColumn(w: number, col: any) {
+  col.width = w;
 }
 
+const changeFruitFilter = () => {
+  fruitData.value = ['Apple', 'Banana', 'Cherry'];
+};
 
-
-// composables/useResponsive.ts
-import { computed } from 'vue'
-import { useWindowSize } from '@vueuse/core'
-
-export function useResponsive() {
-  const { width } = useWindowSize()
-
-  const isMobile = computed(() => width.value < 768)
-
-  return { isMobile }
-}
-
-
-
-🔥 최종 추천 (정리)
-
-👉 이걸 그냥 쓰면 됨
-
-SELECT
-    rootId,
-    COUNT(*) FILTER (WHERE status = 'ok')   AS ok_cnt,
-    COUNT(*) FILTER (WHERE status = 'skip') AS skip_cnt,
-    COUNT(*) FILTER (WHERE status = 'fail') AS fail_cnt,
-    COUNT(*) AS total_cnt
-FROM your_table
-GROUP BY rootId;
-👉 추가로 중요한 질문 (성능 2배 차이 날 수 있음)
-
-하나만 확인해줘:
-👉 테이블 DISTRIBUTED BY 뭐로 되어있어?
-
-rootId면 → 이미 최적 상태
-아니면 → 성능 크게 손해 보고 있을 가능성 있음
-
-원하면 **
-실행계획(EXPLAIN) 기준으로 병목 분석**도 해줄게.
-
-
-
---------------
-
-
-:deep(.ant-table-row-expand-icon-cell) {
-  text-align: center !important;
-  vertical-align: middle;
-}
-
-
-<a-table
-  :expandable="{
-    columnWidth: 60,
-    expandColumnIndex: 0
-  }"
-/>
-
-
-const expandableConfig = {
-  rowExpandable: (record: TableRow) => record.key !== '1', // 🔥 조건
-}
-
-<style scoped lang="scss">
-:deep(.ant-table-row-expand-icon-cell) {
-  text-align: center;
-}
-
-:deep(.ant-table-row-expand-icon) {
-  width: 22px;
-  height: 22px;
-  font-size: 14px;
-  line-height: 22px;
-  transform: scale(1.2);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-</style>
-
-5️⃣ 진짜 문제 상황 체크리스트
-
-다음 중 하나면 문제다:
-
-❌ 1. transaction 안 쓰는 경우
-await conn.execute(...)
-
-👉 autocommit → transaction 관리 안됨
-
-❌ 2. UoW에서 transaction 빠짐
-async def get_uow():
-    conn = await pool.acquire()
-    yield UoW(conn)
-
-👉 이건 위험
-
-❌ 3. SSE에서 transaction 유지
-async with conn.transaction():
-    yield StreamingResponse(...)
-
-👉 이건 거의 문제 확정
-
-6️⃣ 올바른 구조 (중요)
-create_room
-transaction 시작
-→ insert room
-→ commit
-stream_start
-transaction 시작
-→ insert message
-→ commit
-
-SSE 시작 (no transaction)
-7️⃣ 디버깅 방법
-
-코드에 찍어봐:
-
-await conn.fetchval("SELECT txid_current()")
-
-그리고
-
-await conn.fetchval("SELECT pg_backend_pid()")
-결과 해석
-값	의미
-txid 같음	같은 트랜잭션 (문제)
-txid 다름	정상
-pid 같음	connection 재사용
-pid 다름	다른 connection
-🎯 최종 결론
-
-👉 API마다 트랜잭션은 분리되는 게 정상
-👉 동일하게 보이면 대부분 connection 재사용 때문
-👉 진짜 확인은 txid_current()로 해야 함
-
-🚀 한 단계 더 중요한 포인트
-
-너 구조에서는 앞으로 이 문제도 생긴다:
-
-👉 SSE 중간에 DB 접근하면 connection 꼬임
-
-이거 잘못 설계하면:
-
-connection pool 고갈
-transaction lock
-성능 급락
-
-원하면 다음으로
-👉 
-FastAPI + asyncpg + UoW + SSE에서 안전한 connection/transaction 설계
-실무 기준으로 딱 정리해줄게 👍
+const changeNameFilter = () => {
+  nameData.value = ['John Brown', 'Jim Green', 'Joe Black'];
+};
+</script>
