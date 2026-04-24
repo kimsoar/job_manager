@@ -1,3 +1,75 @@
+// composables/useEllipsis.ts
+import { ref, onMounted, onBeforeUnmount, nextTick, type Ref } from 'vue'
+
+export function useEllipsis(target: Ref<HTMLElement | null>) {
+  const isEllipsis = ref(false)
+
+  const check = () => {
+    if (!target.value) return
+    const el = target.value
+
+    isEllipsis.value = el.scrollWidth > el.clientWidth
+  }
+
+  let observer: ResizeObserver
+
+  onMounted(async () => {
+    await nextTick()
+    check()
+
+    if (target.value) {
+      observer = new ResizeObserver(check)
+      observer.observe(target.value)
+    }
+  })
+
+  onBeforeUnmount(() => {
+    observer?.disconnect()
+  })
+
+  return { isEllipsis, check }
+}
+
+
+
+<!-- components/EllipsisCell.vue -->
+<template>
+  <a-tooltip v-if="isEllipsis" :title="text">
+    <div ref="el" class="truncate">
+      {{ text }}
+    </div>
+  </a-tooltip>
+
+  <div v-else ref="el" class="truncate">
+    {{ text }}
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useEllipsis } from '@/composables/useEllipsis'
+
+const props = defineProps<{
+  text: string
+}>()
+
+const el = ref<HTMLElement | null>(null)
+const { isEllipsis } = useEllipsis(el)
+</script>
+
+truncate = overflow-hidden text-ellipsis whitespace-nowrap
+
+<a-table :columns="columns" :data-source="data">
+  <template #bodyCell="{ column, record }">
+    <template v-if="column.dataIndex === 'name'">
+      <EllipsisCell :text="record.name" />
+    </template>
+  </template>
+</a-table>
+
+
+
+
 <template>
   <a-button @click="changeFruitFilter">Change Fruit Filter</a-button>
   <a-button @click="changeNameFilter">Change Name Filter</a-button>
