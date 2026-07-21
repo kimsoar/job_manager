@@ -1,3 +1,28 @@
+<configuration>
+    <system.webServer>
+        <rewrite>
+            <rules>
+
+                <rule name="Redirect Old Domain" stopProcessing="true">
+                    <match url="(.*)" />
+
+                    <conditions>
+                        <add input="{HTTP_HOST}" pattern="^old\.example\.com$" />
+                    </conditions>
+
+                    <action
+                        type="Redirect"
+                        url="https://new.example.com/{R:1}"
+                        redirectType="Permanent" />
+                </rule>
+
+            </rules>
+        </rewrite>
+    </system.webServer>
+</configuration>
+
+
+
 
   async function copySelection() {
     if (!start.value || !end.value) return;
