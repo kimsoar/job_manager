@@ -1,3 +1,45 @@
+// Before
+const JUDGMENT_REGEX =
+  /(ppid|eqp_id|chamber_id)\((완전 불일치|부분 불일치)\):g1=\[[^\]]*\]\/g2=\[[^\]]*\]/g;
+
+// After: key=타입 (교집합: {...}) 형태
+const JUDGMENT_REGEX =
+  /(ppid|eqp_id|chamber_id)=(완전 불일치|부분 불일치)\s*\(교집합:\s*\{[^}]*\}\)/g;
+
+
+
+function parseFieldJudgments(judgmentText: string): FieldMismatchMap | null {
+  if (!judgmentText || judgmentText.includes("공통")) return null;
+
+  const keyMapping: Record<string, "PPID" | "EQP" | "Chamber"> = {
+    ppid: "PPID",
+    eqp_id: "EQP",
+    chamber_id: "Chamber",
+  };
+
+  const result: FieldMismatchMap = {};
+  JUDGMENT_REGEX.lastIndex = 0;
+  let match;
+
+  while ((match = JUDGMENT_REGEX.exec(judgmentText)) !== null) {
+    const fieldKey = keyMapping[match[1]];
+    if (!fieldKey) continue;
+
+    const type: MismatchType = match[2] === "완전 불일치" ? "complete" : "partial";
+    if (result[fieldKey] !== "complete") {
+      result[fieldKey] = type;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+
+
+
+
+
+
 function isEmptyRow(
   row: MarkdownTableRow,
 ): boolean {
