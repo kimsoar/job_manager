@@ -1,9 +1,14 @@
 <template>
   <div class="w-full h-full flex flex-col bg-white">
 
-    <!-- Toolbar -->
-    <div class="flex items-center gap-2 px-3 py-2 border-b shrink-0">
+    <!-- =========================================================
+         Toolbar
+    ========================================================== -->
+    <div
+      class="flex items-center gap-2 px-3 py-2 border-b shrink-0"
+    >
 
+      <!-- Ruler -->
       <a-button
         :type="rulerMode ? 'primary' : 'default'"
         @click="toggleRuler"
@@ -11,6 +16,8 @@
         📏 {{ rulerMode ? 'Ruler ON' : 'Ruler OFF' }}
       </a-button>
 
+
+      <!-- Snap -->
       <a-button
         :type="snapEnabled ? 'primary' : 'default'"
         :disabled="!rulerMode"
@@ -19,11 +26,14 @@
         🧲 Snap {{ snapEnabled ? 'ON' : 'OFF' }}
       </a-button>
 
+
+      <!-- Snap mode -->
       <a-select
         v-model:value="snapMode"
         :disabled="!rulerMode || !snapEnabled"
         style="width: 130px"
       >
+
         <a-select-option value="nearest">
           Nearest
         </a-select-option>
@@ -39,8 +49,11 @@
         <a-select-option value="edge">
           Edge
         </a-select-option>
+
       </a-select>
 
+
+      <!-- Clear -->
       <a-button
         :disabled="!hasMeasurement"
         @click="clearMeasurement"
@@ -48,11 +61,15 @@
         Clear
       </a-button>
 
-      <!-- Measurement -->
+
+      <!-- =======================================================
+           Measurement
+      ======================================================== -->
       <div
         v-if="hasMeasurement"
         class="ml-4 flex items-center gap-5 text-sm"
       >
+
         <span>
           ΔX:
           <strong>
@@ -60,6 +77,7 @@
           </strong>
           {{ unit }}
         </span>
+
 
         <span>
           ΔY:
@@ -69,6 +87,7 @@
           {{ unit }}
         </span>
 
+
         <span>
           Distance:
           <strong>
@@ -77,24 +96,34 @@
           {{ unit }}
         </span>
 
+
         <span
-          v-if="measurement.startObject"
+          v-if="
+            measurement.startObject ||
+            measurement.endObject
+          "
           class="text-gray-500"
         >
-          {{ measurement.startObject }}
+          {{ measurement.startObject || '-' }}
 
           →
 
-          {{ measurement.endObject }}
+          {{ measurement.endObject || '-' }}
         </span>
+
       </div>
 
+
       <span
-        v-if="rulerMode && !isDragging"
+        v-if="
+          rulerMode &&
+          !isDragging
+        "
         class="ml-auto text-gray-400 text-sm"
       >
         Drag to measure
       </span>
+
 
       <span
         v-if="isDragging"
@@ -105,19 +134,29 @@
 
     </div>
 
-    <!-- Plotly -->
+
+    <!-- =========================================================
+         Plotly
+    ========================================================== -->
     <div
       ref="plotContainer"
       class="relative flex-1 min-h-0"
     >
+
       <div
         ref="plotElement"
         class="w-full h-full"
       />
 
-      <!-- Current measurement -->
+
+      <!-- =======================================================
+           Current measurement
+      ======================================================== -->
       <div
-        v-if="rulerMode && isDragging"
+        v-if="
+          rulerMode &&
+          isDragging
+        "
         class="
           absolute
           top-3
@@ -132,42 +171,60 @@
           text-sm
         "
       >
+
         <div>
           ΔX:
+
           <strong>
             {{ currentMeasurement.dx.toFixed(2) }}
           </strong>
+
           {{ unit }}
         </div>
+
 
         <div>
           ΔY:
+
           <strong>
             {{ currentMeasurement.dy.toFixed(2) }}
           </strong>
+
           {{ unit }}
         </div>
+
 
         <div>
           Distance:
+
           <strong>
             {{ currentMeasurement.distance.toFixed(2) }}
           </strong>
+
           {{ unit }}
         </div>
 
+
         <div
-          v-if="currentMeasurement.startObject"
+          v-if="
+            currentMeasurement.startObject ||
+            currentMeasurement.endObject
+          "
           class="text-gray-500"
         >
-          {{ currentMeasurement.startObject }}
+          {{ currentMeasurement.startObject || '-' }}
+
           →
 
-          {{ currentMeasurement.endObject }}
+          {{ currentMeasurement.endObject || '-' }}
         </div>
+
       </div>
 
-      <!-- Snap information -->
+
+      <!-- =======================================================
+           Snap information
+      ======================================================== -->
       <div
         v-if="snapPoint"
         class="
@@ -183,14 +240,25 @@
           pointer-events-none
         "
       >
+
         {{ snapPoint.type }}
 
-        <span v-if="snapPoint.objectId">
+        <span
+          v-if="snapPoint.objectId"
+        >
           · {{ snapPoint.objectId }}
         </span>
+
+        <span
+          v-if="snapPoint.corner"
+        >
+          · {{ snapPoint.corner }}
+        </span>
+
       </div>
 
     </div>
+
   </div>
 </template>
 
@@ -210,9 +278,7 @@ import Plotly from 'plotly.js-dist-min'
 import type {
   Config,
   Data,
-  Layout,
-  Shape,
-  Annotations
+  Layout
 } from 'plotly.js'
 
 import {
@@ -236,12 +302,24 @@ interface WaferObject {
 
   id: string
 
+  /*
+   * Left-bottom coordinate
+   */
   x: number
   y: number
 
   width: number
   height: number
+
+  label?: string
 }
+
+
+type SnapMode =
+  | 'nearest'
+  | 'center'
+  | 'corner'
+  | 'edge'
 
 
 type SnapType =
@@ -282,34 +360,47 @@ interface Props {
 
   unit?: string
 
+  /*
+   * Snap tolerance.
+   *
+   * Pixel 기준.
+   */
   snapThresholdPx?: number
 }
 
 
-const props = withDefaults(
-  defineProps<Props>(),
-  {
-    unit: 'μm',
-    snapThresholdPx: 15
-  }
-)
+const props =
+  withDefaults(
+    defineProps<Props>(),
+    {
+      unit: 'μm',
+
+      snapThresholdPx: 15
+    }
+  )
 
 
-const unit = computed(
-  () => props.unit
-)
+const unit =
+  computed(
+    () => props.unit
+  )
 
 
 /* ================================================================
- * Refs
+ * DOM
  * ================================================================ */
 
 const plotContainer =
   ref<HTMLElement | null>(null)
 
+
 const plotElement =
   ref<HTMLElement | null>(null)
 
+
+/* ================================================================
+ * State
+ * ================================================================ */
 
 const rulerMode =
   ref(false)
@@ -320,9 +411,7 @@ const snapEnabled =
 
 
 const snapMode =
-  ref<SnapType | 'nearest'>(
-    'nearest'
-  )
+  ref<SnapMode>('nearest')
 
 
 const isDragging =
@@ -352,122 +441,78 @@ const measurement =
 /* ================================================================
  * Wafer Objects
  *
- * 실제 프로젝트에서는 props/API 데이터 사용
+ * 실제 프로젝트에서는 API 데이터 또는 props로 교체
  * ================================================================ */
 
 const waferObjects =
   ref<WaferObject[]>([
     {
       id: 'DIE_01',
+
       x: -30000,
+
       y: 0,
+
       width: 15000,
+
       height: 15000
     },
 
     {
       id: 'DIE_02',
+
       x: -10000,
+
       y: 0,
+
       width: 15000,
+
       height: 15000
     },
 
     {
       id: 'DIE_03',
+
       x: 10000,
+
       y: 0,
+
       width: 15000,
+
       height: 15000
     },
 
     {
       id: 'DIE_04',
+
       x: -30000,
+
       y: -20000,
+
       width: 15000,
+
       height: 15000
     },
 
     {
       id: 'DIE_05',
+
       x: -10000,
+
       y: -20000,
+
       width: 15000,
+
       height: 15000
     }
   ])
 
 
 /* ================================================================
- * Geometry
+ * Utility
  * ================================================================ */
 
-function getCenter(
-  obj: WaferObject
-): Point {
-
-  return {
-    x: obj.x + obj.width / 2,
-    y: obj.y + obj.height / 2
-  }
-}
-
-
-function getCorners(
-  obj: WaferObject
-): SnapPoint[] {
-
-  return [
-
-    {
-      x: obj.x,
-      y: obj.y,
-
-      type: 'corner',
-
-      objectId: obj.id,
-
-      corner: 'bottom-left'
-    },
-
-    {
-      x: obj.x + obj.width,
-      y: obj.y,
-
-      type: 'corner',
-
-      objectId: obj.id,
-
-      corner: 'bottom-right'
-    },
-
-    {
-      x: obj.x + obj.width,
-      y: obj.y + obj.height,
-
-      type: 'corner',
-
-      objectId: obj.id,
-
-      corner: 'top-right'
-    },
-
-    {
-      x: obj.x,
-      y: obj.y + obj.height,
-
-      type: 'corner',
-
-      objectId: obj.id,
-
-      corner: 'top-left'
-    }
-  ]
-}
-
-
-function distance(
+function pointDistance(
   a: Point,
   b: Point
 ): number {
@@ -486,28 +531,127 @@ function distance(
 
 
 /* ================================================================
- * Closest point on Edge
+ * Object center
  * ================================================================ */
 
-function closestPointOnEdge(
+function getObjectCenter(
+  object: WaferObject
+): Point {
+
+  return {
+
+    x:
+      object.x +
+      object.width / 2,
+
+    y:
+      object.y +
+      object.height / 2
+  }
+}
+
+
+/* ================================================================
+ * Object corners
+ * ================================================================ */
+
+function getObjectCorners(
+  object: WaferObject
+): SnapPoint[] {
+
+  return [
+
+    {
+      x: object.x,
+
+      y: object.y,
+
+      type: 'corner',
+
+      objectId: object.id,
+
+      corner: 'bottom-left'
+    },
+
+
+    {
+      x:
+        object.x +
+        object.width,
+
+      y: object.y,
+
+      type: 'corner',
+
+      objectId: object.id,
+
+      corner: 'bottom-right'
+    },
+
+
+    {
+      x:
+        object.x +
+        object.width,
+
+      y:
+        object.y +
+        object.height,
+
+      type: 'corner',
+
+      objectId: object.id,
+
+      corner: 'top-right'
+    },
+
+
+    {
+      x: object.x,
+
+      y:
+        object.y +
+        object.height,
+
+      type: 'corner',
+
+      objectId: object.id,
+
+      corner: 'top-left'
+    }
+
+  ]
+}
+
+
+/* ================================================================
+ * Closest point on object edge
+ * ================================================================ */
+
+function getClosestPointOnEdge(
   point: Point,
-  obj: WaferObject
+  object: WaferObject
 ): SnapPoint {
 
   const left =
-    obj.x
+    object.x
 
   const right =
-    obj.x + obj.width
+    object.x +
+    object.width
 
   const bottom =
-    obj.y
+    object.y
 
   const top =
-    obj.y + obj.height
+    object.y +
+    object.height
 
 
-  const x =
+  /*
+   * Clamp point into rectangle.
+   */
+  const clampedX =
     Math.max(
       left,
       Math.min(
@@ -517,7 +661,7 @@ function closestPointOnEdge(
     )
 
 
-  const y =
+  const clampedY =
     Math.max(
       bottom,
       Math.min(
@@ -527,40 +671,59 @@ function closestPointOnEdge(
     )
 
 
-  const distances = [
+  const candidates = [
 
     {
-      value: Math.abs(point.x - left),
+      distance:
+        Math.abs(
+          point.x - left
+        ),
 
       point: {
         x: left,
-        y
+
+        y: clampedY
       }
     },
 
+
     {
-      value: Math.abs(point.x - right),
+      distance:
+        Math.abs(
+          point.x - right
+        ),
 
       point: {
         x: right,
-        y
+
+        y: clampedY
       }
     },
 
+
     {
-      value: Math.abs(point.y - bottom),
+      distance:
+        Math.abs(
+          point.y - bottom
+        ),
 
       point: {
-        x,
+        x: clampedX,
+
         y: bottom
       }
     },
 
+
     {
-      value: Math.abs(point.y - top),
+      distance:
+        Math.abs(
+          point.y - top
+        ),
 
       point: {
-        x,
+        x: clampedX,
+
         y: top
       }
     }
@@ -568,32 +731,40 @@ function closestPointOnEdge(
   ]
 
 
-  distances.sort(
+  candidates.sort(
     (a, b) =>
-      a.value - b.value
+      a.distance -
+      b.distance
   )
 
 
   return {
 
-    ...distances[0].point,
+    x:
+      candidates[0].point.x,
+
+    y:
+      candidates[0].point.y,
 
     type: 'edge',
 
-    objectId: obj.id
+    objectId:
+      object.id
   }
 }
 
 
 /* ================================================================
- * Snap Candidate
+ * Find nearest Snap
  * ================================================================ */
 
 function findSnapCandidate(
   point: Point
 ): SnapPoint | null {
 
-  if (!snapEnabled.value) {
+  if (
+    !snapEnabled.value
+  ) {
     return null
   }
 
@@ -607,23 +778,27 @@ function findSnapCandidate(
 
 
   for (
-    const obj of waferObjects.value
+    const object
+    of waferObjects.value
   ) {
 
-    /*
+    /* ------------------------------------------------------------
      * Center
-     */
+     * ---------------------------------------------------------- */
+
     if (
       snapMode.value === 'center' ||
       snapMode.value === 'nearest'
     ) {
 
       const center =
-        getCenter(obj)
+        getObjectCenter(
+          object
+        )
 
 
       const d =
-        distance(
+        pointDistance(
           point,
           center
         )
@@ -633,34 +808,46 @@ function findSnapCandidate(
         d < bestDistance
       ) {
 
-        bestDistance = d
+        bestDistance =
+          d
 
         best = {
-          ...center,
+
+          x: center.x,
+
+          y: center.y,
 
           type: 'center',
 
-          objectId: obj.id
+          objectId:
+            object.id
         }
       }
     }
 
 
-    /*
-     * Corners
-     */
+    /* ------------------------------------------------------------
+     * Corner
+     * ---------------------------------------------------------- */
+
     if (
       snapMode.value === 'corner' ||
       snapMode.value === 'nearest'
     ) {
 
+      const corners =
+        getObjectCorners(
+          object
+        )
+
+
       for (
         const corner
-        of getCorners(obj)
+        of corners
       ) {
 
         const d =
-          distance(
+          pointDistance(
             point,
             corner
           )
@@ -670,31 +857,34 @@ function findSnapCandidate(
           d < bestDistance
         ) {
 
-          bestDistance = d
+          bestDistance =
+            d
 
-          best = corner
+          best =
+            corner
         }
       }
     }
 
 
-    /*
+    /* ------------------------------------------------------------
      * Edge
-     */
+     * ---------------------------------------------------------- */
+
     if (
       snapMode.value === 'edge' ||
       snapMode.value === 'nearest'
     ) {
 
       const edge =
-        closestPointOnEdge(
+        getClosestPointOnEdge(
           point,
-          obj
+          object
         )
 
 
       const d =
-        distance(
+        pointDistance(
           point,
           edge
         )
@@ -704,9 +894,11 @@ function findSnapCandidate(
         d < bestDistance
       ) {
 
-        bestDistance = d
+        bestDistance =
+          d
 
-        best = edge
+        best =
+          edge
       }
     }
   }
@@ -717,23 +909,36 @@ function findSnapCandidate(
 
 
 /* ================================================================
- * Plotly coordinate conversion
+ * Get Plotly Graph
+ * ================================================================ */
+
+function getGraph():
+  HTMLElement | null {
+
+  if (
+    !plotElement.value
+  ) {
+    return null
+  }
+
+
+  return plotElement.value
+    .querySelector(
+      '.js-plotly-plot'
+    )
+}
+
+
+/* ================================================================
+ * Convert mouse pixel → Plotly coordinate
  * ================================================================ */
 
 function getPlotPoint(
   event: MouseEvent
 ): Point | null {
 
-  if (!plotElement.value) {
-    return null
-  }
-
-
   const graph =
-    plotElement.value
-      .querySelector(
-        '.js-plotly-plot'
-      ) as any
+    getGraph() as any
 
 
   if (!graph) {
@@ -741,11 +946,11 @@ function getPlotPoint(
   }
 
 
-  const layout =
+  const fullLayout =
     graph._fullLayout
 
 
-  if (!layout) {
+  if (!fullLayout) {
     return null
   }
 
@@ -765,10 +970,11 @@ function getPlotPoint(
 
 
   const xaxis =
-    layout.xaxis
+    fullLayout.xaxis
+
 
   const yaxis =
-    layout.yaxis
+    fullLayout.yaxis
 
 
   if (
@@ -781,33 +987,32 @@ function getPlotPoint(
 
   return {
 
-    x: xaxis.p2l(
-      px - xaxis._offset
-    ),
+    x:
+      xaxis.p2l(
+        px -
+        xaxis._offset
+      ),
 
-    y: yaxis.p2l(
-      py - yaxis._offset
-    )
+    y:
+      yaxis.p2l(
+        py -
+        yaxis._offset
+      )
   }
 }
 
 
 /* ================================================================
- * Snap threshold
+ * Convert Snap threshold
+ *
+ * pixel → data coordinate
  * ================================================================ */
 
-function getSnapThreshold(): number {
-
-  if (!plotElement.value) {
-    return 0
-  }
-
+function getSnapThreshold():
+  number {
 
   const graph =
-    plotElement.value
-      .querySelector(
-        '.js-plotly-plot'
-      ) as any
+    getGraph() as any
 
 
   if (!graph) {
@@ -816,7 +1021,7 @@ function getSnapThreshold(): number {
 
 
   const xaxis =
-    graph._fullLayout.xaxis
+    graph._fullLayout?.xaxis
 
 
   if (!xaxis) {
@@ -851,7 +1056,9 @@ function applySnap(
   point: Point
 ): Point {
 
-  if (!snapEnabled.value) {
+  if (
+    !snapEnabled.value
+  ) {
 
     snapPoint.value =
       null
@@ -861,7 +1068,9 @@ function applySnap(
 
 
   const candidate =
-    findSnapCandidate(point)
+    findSnapCandidate(
+      point
+    )
 
 
   if (!candidate) {
@@ -874,7 +1083,7 @@ function applySnap(
 
 
   const d =
-    distance(
+    pointDistance(
       point,
       candidate
     )
@@ -910,7 +1119,7 @@ function applySnap(
 
 
 /* ================================================================
- * Object search
+ * Find object at point
  * ================================================================ */
 
 function findObjectAtPoint(
@@ -918,19 +1127,21 @@ function findObjectAtPoint(
 ): WaferObject | undefined {
 
   return waferObjects.value.find(
-    obj => {
+    object => {
 
       return (
 
-        point.x >= obj.x &&
+        point.x >= object.x &&
 
         point.x <=
-          obj.x + obj.width &&
+          object.x +
+          object.width &&
 
-        point.y >= obj.y &&
+        point.y >= object.y &&
 
         point.y <=
-          obj.y + obj.height
+          object.y +
+          object.height
       )
     }
   )
@@ -948,13 +1159,15 @@ function calculateMeasurement(
 
   const dx =
     Math.abs(
-      end.x - start.x
+      end.x -
+      start.x
     )
 
 
   const dy =
     Math.abs(
-      end.y - start.y
+      end.y -
+      start.y
     )
 
 
@@ -995,162 +1208,146 @@ function calculateMeasurement(
 
 
 /* ================================================================
- * Current measurement
+ * Computed Measurement
  * ================================================================ */
 
 const currentMeasurement =
-  computed(() => {
+  computed<Measurement>(
+    () => {
 
-    if (
-      !startPoint.value ||
-      !currentPoint.value
-    ) {
+      if (
+        !startPoint.value ||
+        !currentPoint.value
+      ) {
 
-      return {
+        return {
 
-        dx: 0,
+          dx: 0,
 
-        dy: 0,
+          dy: 0,
 
-        distance: 0
+          distance: 0
+        }
       }
+
+
+      return calculateMeasurement(
+
+        startPoint.value,
+
+        currentPoint.value
+      )
     }
-
-
-    return calculateMeasurement(
-      startPoint.value,
-      currentPoint.value
-    )
-  })
+  )
 
 
 const hasMeasurement =
-  computed(() => {
+  computed(
+    () => {
 
-    return (
+      return (
 
-      startPoint.value !== null &&
+        startPoint.value !== null &&
 
-      currentPoint.value !== null
-    )
-  })
+        currentPoint.value !== null
+      )
+    }
+  )
 
 
 /* ================================================================
- * Plotly Data
+ * Build Plotly Data
+ *
+ * 이 부분은 Ruler 이동 때 다시 실행하지 않습니다.
  * ================================================================ */
 
-const buildData =
-  (): Data[] => {
+function buildData(): Data[] {
 
-    const data:
-      Data[] = []
-
-
-    /*
-     * Objects
-     */
-    for (
-      const obj of waferObjects.value
-    ) {
-
-      data.push({
-
-        type: 'scatter',
-
-        mode: 'lines',
-
-        x: [
-
-          obj.x,
-
-          obj.x + obj.width,
-
-          obj.x + obj.width,
-
-          obj.x,
-
-          obj.x
-
-        ],
-
-        y: [
-
-          obj.y,
-
-          obj.y,
-
-          obj.y + obj.height,
-
-          obj.y + obj.height,
-
-          obj.y
-
-        ],
-
-        name: obj.id,
-
-        hovertemplate:
-
-          `${obj.id}<br>` +
-
-          `X: %{x:.0f} ${unit.value}<br>` +
-
-          `Y: %{y:.0f} ${unit.value}` +
-
-          '<extra></extra>'
-      })
-    }
+  const data:
+    Data[] = []
 
 
-    /*
-     * Snap marker
-     */
-    if (
-      snapPoint.value
-    ) {
+  for (
+    const object
+    of waferObjects.value
+  ) {
 
-      data.push({
+    data.push({
 
-        type: 'scatter',
+      type: 'scatter',
 
-        mode: 'markers',
+      mode: 'lines',
 
-        x: [
-          snapPoint.value.x
-        ],
+      x: [
 
-        y: [
-          snapPoint.value.y
-        ],
+        object.x,
 
-        marker: {
+        object.x +
+          object.width,
 
-          size: 14,
+        object.x +
+          object.width,
 
-          symbol: 'cross'
-        },
+        object.x,
 
-        hoverinfo: 'skip'
-      })
-    }
+        object.x
 
+      ],
 
-    return data
+      y: [
+
+        object.y,
+
+        object.y,
+
+        object.y +
+          object.height,
+
+        object.y +
+          object.height,
+
+        object.y
+
+      ],
+
+      name:
+        object.id,
+
+      hovertemplate:
+
+        `${object.id}` +
+
+        `<br>` +
+
+        `X: %{x:.0f} ${unit.value}` +
+
+        `<br>` +
+
+        `Y: %{y:.0f} ${unit.value}` +
+
+        '<extra></extra>'
+    })
   }
 
 
+  return data
+}
+
+
 /* ================================================================
- * Ruler Shapes
+ * Build Ruler Shapes
+ *
+ * 중요:
+ * Shape 타입을 직접 지정하지 않습니다.
  * ================================================================ */
 
-function buildRulerShapes():
-  Shape[] {
+function buildRulerShapes() {
 
   if (
     !startPoint.value ||
     !currentPoint.value
   ) {
+
     return []
   }
 
@@ -1165,8 +1362,7 @@ function buildRulerShapes():
   return [
 
     {
-
-      type: 'line',
+      type: 'line' as const,
 
       x0: start.x,
 
@@ -1182,17 +1378,21 @@ function buildRulerShapes():
       }
     },
 
+
     {
+      type: 'circle' as const,
 
-      type: 'circle',
+      x0:
+        start.x - 200,
 
-      x0: start.x - 200,
+      x1:
+        start.x + 200,
 
-      x1: start.x + 200,
+      y0:
+        start.y - 200,
 
-      y0: start.y - 200,
-
-      y1: start.y + 200,
+      y1:
+        start.y + 200,
 
       line: {
 
@@ -1200,17 +1400,21 @@ function buildRulerShapes():
       }
     },
 
+
     {
+      type: 'circle' as const,
 
-      type: 'circle',
+      x0:
+        end.x - 200,
 
-      x0: end.x - 200,
+      x1:
+        end.x + 200,
 
-      x1: end.x + 200,
+      y0:
+        end.y - 200,
 
-      y0: end.y - 200,
-
-      y1: end.y + 200,
+      y1:
+        end.y + 200,
 
       line: {
 
@@ -1223,16 +1427,16 @@ function buildRulerShapes():
 
 
 /* ================================================================
- * Ruler Annotation
+ * Build Annotation
  * ================================================================ */
 
-function buildAnnotations():
-  Annotations[] {
+function buildAnnotations() {
 
   if (
     !startPoint.value ||
     !currentPoint.value
   ) {
+
     return []
   }
 
@@ -1246,7 +1450,9 @@ function buildAnnotations():
 
   const result =
     calculateMeasurement(
+
       start,
+
       end
     )
 
@@ -1256,10 +1462,12 @@ function buildAnnotations():
     {
 
       x:
-        (start.x + end.x) / 2,
+        (start.x +
+          end.x) / 2,
 
       y:
-        (start.y + end.y) / 2,
+        (start.y +
+          end.y) / 2,
 
       text:
 
@@ -1287,10 +1495,12 @@ function buildAnnotations():
 
 
 /* ================================================================
- * Layout
+ * Base Layout
+ *
+ * Ruler 상태와 관계없는 Layout
  * ================================================================ */
 
-function buildLayout():
+function buildBaseLayout():
   Partial<Layout> {
 
   return {
@@ -1315,13 +1525,13 @@ function buildLayout():
           `X (${unit.value})`
       },
 
-      scaleanchor: 'y',
-
-      scaleratio: 1,
-
       showgrid: true,
 
-      zeroline: true
+      zeroline: true,
+
+      scaleanchor: 'y',
+
+      scaleratio: 1
     },
 
 
@@ -1341,23 +1551,8 @@ function buildLayout():
 
     hovermode: 'closest',
 
-
-    /*
-     * Ruler ON:
-     * Plotly drag interaction disabled.
-     */
     dragmode:
-      rulerMode.value
-        ? false
-        : 'pan',
-
-
-    shapes:
-      buildRulerShapes(),
-
-
-    annotations:
-      buildAnnotations()
+      'pan'
   }
 }
 
@@ -1385,23 +1580,25 @@ const plotConfig:
 
 
 /* ================================================================
- * Render Plotly
+ * Initial Plot
  * ================================================================ */
 
-async function renderPlot() {
+async function initializePlot() {
 
-  if (!plotElement.value) {
+  if (
+    !plotElement.value
+  ) {
     return
   }
 
 
-  await Plotly.react(
+  await Plotly.newPlot(
 
     plotElement.value,
 
     buildData(),
 
-    buildLayout(),
+    buildBaseLayout(),
 
     plotConfig
   )
@@ -1409,12 +1606,61 @@ async function renderPlot() {
 
 
 /* ================================================================
- * Update Plot
+ * Update Ruler
+ *
+ * ★ 핵심
+ *
+ * 전체 Plotly.react()를 호출하지 않습니다.
+ *
+ * Ruler:
+ *   → Plotly.relayout()
+ *
+ * Object 변경:
+ *   → Plotly.react()
  * ================================================================ */
 
-async function updatePlot() {
+async function updateRuler() {
 
-  if (!plotElement.value) {
+  if (
+    !plotElement.value
+  ) {
+    return
+  }
+
+
+  const shapes =
+    buildRulerShapes()
+
+
+  const annotations =
+    buildAnnotations()
+
+
+  await Plotly.relayout(
+
+    plotElement.value,
+
+    {
+
+      shapes,
+
+      annotations
+    }
+  )
+}
+
+
+/* ================================================================
+ * Update Object Data
+ *
+ * 외부에서 waferObjects가 변경되었을 때 사용하는 함수.
+ * ================================================================ */
+
+async function updateObjects() {
+
+  if (
+    !plotElement.value
+  ) {
     return
   }
 
@@ -1425,7 +1671,7 @@ async function updatePlot() {
 
     buildData(),
 
-    buildLayout(),
+    buildBaseLayout(),
 
     plotConfig
   )
@@ -1454,17 +1700,21 @@ function handleMouseDown(
   }
 
 
-  const raw =
-    getPlotPoint(event)
+  const rawPoint =
+    getPlotPoint(
+      event
+    )
 
 
-  if (!raw) {
+  if (!rawPoint) {
     return
   }
 
 
   const point =
-    applySnap(raw)
+    applySnap(
+      rawPoint
+    )
 
 
   startPoint.value =
@@ -1481,7 +1731,9 @@ function handleMouseDown(
 
   measurement.value =
     calculateMeasurement(
+
       point,
+
       point
     )
 
@@ -1511,17 +1763,21 @@ function handleMouseMove(
   }
 
 
-  const raw =
-    getPlotPoint(event)
+  const rawPoint =
+    getPlotPoint(
+      event
+    )
 
 
-  if (!raw) {
+  if (!rawPoint) {
     return
   }
 
 
   const point =
-    applySnap(raw)
+    applySnap(
+      rawPoint
+    )
 
 
   currentPoint.value =
@@ -1537,7 +1793,10 @@ function handleMouseMove(
     )
 
 
-  updatePlot()
+  /*
+   * ★ Ruler만 업데이트
+   */
+  void updateRuler()
 }
 
 
@@ -1557,14 +1816,18 @@ function handleMouseUp(
   }
 
 
-  const raw =
-    getPlotPoint(event)
+  const rawPoint =
+    getPlotPoint(
+      event
+    )
 
 
-  if (raw) {
+  if (rawPoint) {
 
     const point =
-      applySnap(raw)
+      applySnap(
+        rawPoint
+      )
 
 
     currentPoint.value =
@@ -1590,7 +1853,7 @@ function handleMouseUp(
     false
 
 
-  updatePlot()
+  void updateRuler()
 }
 
 
@@ -1604,12 +1867,13 @@ async function toggleRuler() {
     !rulerMode.value
 
 
+  isDragging.value =
+    false
+
+
   if (
     !rulerMode.value
   ) {
-
-    isDragging.value =
-      false
 
     startPoint.value =
       null
@@ -1619,10 +1883,42 @@ async function toggleRuler() {
 
     snapPoint.value =
       null
+
+
+    /*
+     * Ruler 제거
+     */
+    await Plotly.relayout(
+
+      plotElement.value!,
+
+      {
+
+        shapes: [],
+
+        annotations: [],
+
+        dragmode: 'pan'
+      }
+    )
+
+  } else {
+
+    /*
+     * Ruler ON
+     *
+     * Plotly의 dragmode를 false로 변경.
+     */
+    await Plotly.relayout(
+
+      plotElement.value!,
+
+      {
+
+        dragmode: false
+      }
+    )
   }
-
-
-  await updatePlot()
 }
 
 
@@ -1655,7 +1951,17 @@ async function clearMeasurement() {
   }
 
 
-  await updatePlot()
+  await Plotly.relayout(
+
+    plotElement.value!,
+
+    {
+
+      shapes: [],
+
+      annotations: []
+    }
+  )
 }
 
 
@@ -1690,7 +1996,19 @@ function handleKeyDown(
     null
 
 
-  updatePlot()
+  void Plotly.relayout(
+
+    plotElement.value!,
+
+    {
+
+      shapes: [],
+
+      annotations: [],
+
+      dragmode: 'pan'
+    }
+  )
 }
 
 
@@ -1711,17 +2029,14 @@ onMounted(
     }
 
 
-    await renderPlot()
-
-
     /*
-     * Plotly graph element
+     * Plotly 최초 생성
      */
+    await initializePlot()
+
+
     const graph =
-      plotElement.value
-        .querySelector(
-          '.js-plotly-plot'
-        )
+      getGraph()
 
 
     if (!graph) {
@@ -1763,10 +2078,7 @@ onBeforeUnmount(
   () => {
 
     const graph =
-      plotElement.value
-        ?.querySelector(
-          '.js-plotly-plot'
-        )
+      getGraph()
 
 
     if (graph) {
