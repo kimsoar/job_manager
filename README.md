@@ -1,2346 +1,1137 @@
 <template>
-  <div class="w-full h-full flex flex-col bg-white">
+  <div
+    class="w-full h-full flex flex-col bg-white"
+    @mouseenter="isHovering = true"
+    @mouseleave="isHovering = false"
+  >
+    <div class="flex items-center px-3 py-2 border-b shrink-0 justify-between">
+      <div class="flex item-center gap-2">
+        <a-button
+          size="small"
+          :type="rulerMode ? 'primary' : 'default'"
+          @click="toggleRuler"
+        >
+          📏 {{ rulerMode ? "Ruler ON" : "Ruler OFF" }}
+        </a-button>
 
-    <!-- =========================================================
-         Toolbar
-    ========================================================== -->
-    <div
-      class="flex items-center gap-2 px-3 py-2 border-b shrink-0"
-    >
-      <!-- Ruler ON / OFF -->
-      <a-button
-        :type="rulerMode ? 'primary' : 'default'"
-        @click="toggleRuler"
-      >
-        📏
-        {{ rulerMode ? 'Ruler ON' : 'Ruler OFF' }}
-      </a-button>
-
-
-      <!-- Snap ON / OFF -->
-      <a-button
+        <!-- <a-button
+        size="small"
         :type="snapEnabled ? 'primary' : 'default'"
         :disabled="!rulerMode"
         @click="toggleSnap"
       >
-        🧲
-        Snap {{ snapEnabled ? 'ON' : 'OFF' }}
-      </a-button>
+        🧲 Snap {{ snapEnabled ? "ON" : "OFF" }}
+      </a-button> -->
 
-
-      <!-- Clear -->
-      <a-button
-        :disabled="!hasMeasurement"
-        @click="clearMeasurement"
-      >
-        Clear
-      </a-button>
-
-
-      <!-- =======================================================
-           Measurement
-      ======================================================== -->
-      <div
-        v-if="hasMeasurement"
-        class="ml-4 flex items-center gap-5 text-sm"
-      >
-        <span>
-          ΔX:
-          <strong>
-            {{ measurement.dx.toFixed(2) }}
-          </strong>
-          {{ unit }}
-        </span>
-
-
-        <span>
-          ΔY:
-          <strong>
-            {{ measurement.dy.toFixed(2) }}
-          </strong>
-          {{ unit }}
-        </span>
-
-
-        <span>
-          Distance:
-          <strong>
-            {{ measurement.distance.toFixed(2) }}
-          </strong>
-          {{ unit }}
-        </span>
-
-
-        <!-- Start / End Object -->
-        <span
-          v-if="
-            measurement.startObject ||
-            measurement.endObject
-          "
-          class="text-gray-500"
+        <a-button
+          size="small"
+          :disabled="!hasMeasurement"
+          @click="clearMeasurement"
         >
-          {{ measurement.startObject || '-' }}
-
-          →
-
-          {{ measurement.endObject || '-' }}
-        </span>
+          Clear
+        </a-button>
       </div>
+      <div class="flex items-center gap-2">
+        <a-button
+          size="small"
+          :type="showLegend ? 'primary' : 'default'"
+          @click="toggleLegend"
+        >
+          🏷️ Legend {{ showLegend ? "ON" : "OFF" }}
+        </a-button>
 
+        <a-popover
+          v-model:open="shortcutsPopoverOpen"
+          trigger="click"
+          placement="bottomRight"
+          :overlay-style="{ width: '290px' }"
+        >
+          <!-- Popover는 항상 흰 배경(ant-design-vue 기본값)이라, 시스템 다크모드 영향을 받지 않도록
+               색상은 라이트 팔레트로 고정합니다 (dark: variant 사용 안 함). -->
+          <template #title>
+            <div
+              class="flex items-center gap-1.5 py-1.5 border-b border-slate-200"
+            >
+              <span class="text-base">⌨️</span>
+              <span class="font-bold text-xs text-slate-900 leading-none">
+                단축키 안내
+              </span>
+            </div>
+          </template>
 
-      <!-- =======================================================
-           Instruction
-      ======================================================== -->
-      <span
-        v-if="
-          rulerMode &&
-          !isDragging
-        "
-        class="ml-auto text-gray-400 text-sm"
-      >
-        Drag to measure
-      </span>
+          <!-- Popover 내용 -->
+          <template #content>
+            <div class="py-1 space-y-1.5">
+              <div
+                v-for="item in SHORTCUT_LIST"
+                :key="item.action"
+                :class="[
+                  'group flex items-center justify-between text-xs px-2 py-1.5 rounded-md transition-colors cursor-pointer active:scale-[0.98]',
+                  item.action.includes('Ruler')
+                    ? 'bg-amber-100 border border-amber-300 hover:bg-amber-200'
+                    : 'hover:bg-slate-100',
+                ]"
+                @click="handleShortcutClick(item)"
+              >
+                <!-- 기능 설명 (좌측) -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <!-- Ruler ON/OFF 일 때만 강조 뱃지/포인트 아이콘 표출 -->
+                  <span
+                    v-if="item.action.includes('Ruler')"
+                    class="inline-block w-1.5 h-1.5 rounded-full bg-amber-600"
+                  ></span>
 
+                  <span
+                    :class="[
+                      'font-normal',
+                      item.action.includes('Ruler')
+                        ? 'font-bold text-amber-900'
+                        : 'text-slate-800',
+                    ]"
+                  >
+                    {{ item.action }}
+                  </span>
 
-      <span
-        v-if="isDragging"
-        class="ml-auto text-blue-500 text-sm"
-      >
-        Measuring...
-      </span>
+                  <!-- Ruler 강조 태그 -->
+                  <span
+                    v-if="item.action.includes('Ruler')"
+                    class="text-[9px] px-1 py-0.5 rounded bg-amber-600 text-white font-semibold leading-none"
+                  >
+                    KEY
+                  </span>
+                </div>
+
+                <!-- 단축키 Badge (우측) -->
+                <div class="flex items-center gap-1 shrink-0">
+                  <!-- 배열 키 처리 (예: Shift + Drag 등) -->
+                  <template v-if="Array.isArray(item.key)">
+                    <template v-for="(k, idx) in item.key" :key="k">
+                      <kbd
+                        :class="[
+                          'inline-flex items-center justify-center min-w-[20px] px-1.5 h-5 text-[10px] font-mono font-semibold rounded shadow-sm border transition-transform group-active:translate-y-px group-active:shadow-none',
+                          item.action.includes('Ruler')
+                            ? 'bg-amber-600 text-white border-amber-700 font-bold'
+                            : 'bg-slate-200 text-slate-900 border-slate-300',
+                        ]"
+                      >
+                        {{ k }}
+                      </kbd>
+                      <span
+                        v-if="idx < item.key.length - 1"
+                        class="text-[10px] text-slate-500 font-bold"
+                        >+</span
+                      >
+                    </template>
+                  </template>
+
+                  <!-- 단일 문자열 키 처리 -->
+                  <kbd
+                    v-else
+                    :class="[
+                      'inline-flex items-center justify-center min-w-[20px] px-1.5 h-5 text-[10px] font-mono font-semibold rounded shadow-sm border transition-transform group-active:translate-y-px group-active:shadow-none',
+                      item.action.includes('Ruler')
+                        ? 'bg-amber-600 text-white border-amber-700 font-bold'
+                        : 'bg-slate-200 text-slate-900 border-slate-300',
+                    ]"
+                  >
+                    {{ item.key }}
+                  </kbd>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Trigger 버튼 -->
+          <a-button
+            size="small"
+            class="inline-flex items-center justify-center px-2 text-xs"
+          >
+            <span>❓</span>
+          </a-button>
+        </a-popover>
+      </div>
     </div>
 
-
-    <!-- =========================================================
-         Plotly
-    ========================================================== -->
-    <div
-      ref="plotContainer"
-      class="relative flex-1 min-h-0"
-    >
-
-      <!--
-        ★ 중요
-
-        이 element 자체가 Plotly graph입니다.
-
-        querySelector('.js-plotly-plot') 사용하지 않습니다.
-      -->
-      <div
-        ref="plotElement"
-        class="w-full h-full"
-      />
-
-
-      <!-- =======================================================
-           Live Measurement
-      ======================================================== -->
-      <div
-        v-if="
-          rulerMode &&
-          isDragging
-        "
-        class="
-          absolute
-          top-3
-          right-3
-          pointer-events-none
-          px-3
-          py-2
-          rounded
-          border
-          bg-white
-          shadow
-          text-sm
-        "
-      >
-        <div>
-          ΔX:
-
-          <strong>
-            {{ currentMeasurement.dx.toFixed(2) }}
-          </strong>
-
-          {{ unit }}
-        </div>
-
-
-        <div>
-          ΔY:
-
-          <strong>
-            {{ currentMeasurement.dy.toFixed(2) }}
-          </strong>
-
-          {{ unit }}
-        </div>
-
-
-        <div>
-          Distance:
-
-          <strong>
-            {{ currentMeasurement.distance.toFixed(2) }}
-          </strong>
-
-          {{ unit }}
-        </div>
-
-
-        <div
-          v-if="
-            currentMeasurement.startObject ||
-            currentMeasurement.endObject
-          "
-          class="text-gray-500"
-        >
-          {{ currentMeasurement.startObject || '-' }}
-
-          →
-
-          {{ currentMeasurement.endObject || '-' }}
-        </div>
-      </div>
-
-
-      <!-- =======================================================
-           Snap Information
-      ======================================================== -->
-      <div
-        v-if="snapPoint"
-        class="
-          absolute
-          bottom-3
-          left-3
-          px-2
-          py-1
-          bg-black
-          text-white
-          rounded
-          text-xs
-          pointer-events-none
-        "
-      >
-        Snap:
-
-        {{ snapPoint.objectName || '-' }}
-
-        <span>
-          (
-          {{ snapPoint.x.toFixed(2) }},
-          {{ snapPoint.y.toFixed(2) }}
-          )
-        </span>
-      </div>
-
+    <div class="relative w-full aspect-square bg-black">
+      <div ref="plotElement" class="w-full h-full" />
     </div>
-
   </div>
 </template>
 
-
 <script setup lang="ts">
-
 import {
   computed,
   nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
-  watch
-} from 'vue'
-
-import Plotly from 'plotly.js-dist-min'
-
-import type {
-  Config,
-  Data,
-  Layout
-} from 'plotly.js'
-
+  watch,
+} from "vue";
+import Plotly from "plotly.js-dist-min";
+import type { Config, Layout, PlotData } from "plotly.js";
+import { Button as AButton, Popover as APopover } from "ant-design-vue";
 import {
-  Button as AButton
-} from 'ant-design-vue'
+  calculateMeasurement,
+  findAxisLockedEdgeIntersection,
+  findNearestEdgeInfo,
+  getDistance,
+  lockToAxis,
+} from "../utils/geometry";
+import type {
+  Measurement,
+  Point,
+  CircuitObject,
+  NearestEdgeInfo,
+} from "../types/geometry";
+import { usePlotlyAxes } from "../composables/usePlotlyAxes";
 
+export type { CircuitObject };
 
-/* ================================================================
- * Types
- * ================================================================ */
-
-
-/**
- * 실제 WaferObject
- *
- * width / height / id / label 없음
- *
- * x / y 배열 자체가 Plotly line을 구성합니다.
- *
- * 예:
- *
- * {
- *   name: 'RECT_01',
- *   x: [0, 100, 100, 0, 0],
- *   y: [0, 0, 100, 100, 0]
- * }
- *
- * 또는
- *
- * {
- *   name: 'LINE_01',
- *   x: [0, 100],
- *   y: [0, 100]
- * }
- */
-export interface WaferObject {
-
-  name: string
-
-  x: number[]
-
-  y: number[]
-}
-
-
-/**
- * 일반 좌표
- */
-interface Point {
-
-  x: number
-
-  y: number
-}
-
-
-/**
- * Snap된 좌표
- */
-interface SnapPoint {
-
-  x: number
-
-  y: number
-
-  objectName?: string
-}
-
-
-/**
- * 측정 결과
- */
-interface Measurement {
-
-  dx: number
-
-  dy: number
-
-  distance: number
-
-  startObject?: string
-
-  endObject?: string
-}
-
-
-/**
- * Props
- */
 interface Props {
-
-  /**
-   * 표시 단위
-   */
-  unit?: string
-
-
-  /**
-   * Snap 허용 범위
-   *
-   * 화면상의 pixel 기준
-   */
-  snapThresholdPx?: number
-
-
-  /**
-   * 실제 Wafer line data
-   */
-  objects?: WaferObject[]
+  unit?: string;
+  /** Snap 허용 범위 (화면 pixel 기준) */
+  snapThresholdPx?: number;
+  objects?: Partial<PlotData>[];
+  /** ⚠️ xaxis.scaleanchor/scaleratio를 layout으로 덮어쓰면 snap/marker 크기 계산이 틀어집니다. */
+  layout?: Partial<Layout>;
 }
 
+const props = withDefaults(defineProps<Props>(), {
+  unit: "μm",
+  snapThresholdPx: 30,
+  objects: () => [],
+  layout: () => ({}),
+});
 
-/* ================================================================
- * Props
- * ================================================================ */
+const emit = defineEmits<{
+  (event: "measure", value: Measurement): void;
+}>();
 
-const props =
-  withDefaults(
-    defineProps<Props>(),
-    {
+const unit = computed(() => props.unit);
+const circuitObjects = computed<Partial<PlotData>[]>(() => props.objects);
 
-      unit:
-        'μm',
-
-      snapThresholdPx:
-        15,
-
-      objects:
-        () => []
-    }
-  )
-
-
-/* ================================================================
- * Emits
- * ================================================================ */
-
-const emit =
-  defineEmits<{
-
-    (
-      event: 'measure',
-
-      value: Measurement
-    ): void
-
-  }>()
-
-
-/* ================================================================
- * Computed
- * ================================================================ */
-
-const unit =
-  computed(
-    () =>
-      props.unit
-  )
-
-
-const waferObjects =
-  computed<WaferObject[]>(
-    () =>
-      props.objects
-  )
-
-
-/* ================================================================
- * DOM refs
- * ================================================================ */
-
-const plotContainer =
-  ref<HTMLElement | null>(null)
-
-
-const plotElement =
-  ref<HTMLElement | null>(null)
-
-
-/* ================================================================
- * Ruler State
- * ================================================================ */
-
-const rulerMode =
-  ref(false)
-
-
-const snapEnabled =
-  ref(true)
-
-
-const isDragging =
-  ref(false)
-
-
-const startPoint =
-  ref<Point | null>(null)
-
-
-const currentPoint =
-  ref<Point | null>(null)
-
-
-const snapPoint =
-  ref<SnapPoint | null>(null)
-
-
-const measurement =
-  ref<Measurement>({
-
-    dx:
-      0,
-
-    dy:
-      0,
-
-    distance:
-      0
-  })
-
-
-/* ================================================================
- * Get Plotly Graph
- *
- * ★ 이전 문제 수정
- *
- * querySelector()를 사용하지 않습니다.
- *
- * plotElement 자체가 Plotly graph입니다.
- * ================================================================ */
-
-function getGraph():
-  HTMLElement | null {
-
-  return plotElement.value
-}
-
-
-/* ================================================================
- * Euclidean Distance
- * ================================================================ */
-
-function getDistance(
-  a: Point,
-  b: Point
-): number {
-
-  const dx =
-    b.x - a.x
-
-  const dy =
-    b.y - a.y
-
-
-  return Math.sqrt(
-    dx * dx +
-    dy * dy
-  )
-}
-
-
-/* ================================================================
- * Point → Line Segment
- *
- * point에서 실제 선분 AB까지의
- * 가장 가까운 점을 계산합니다.
- *
- * 무한한 직선이 아니라
- * 실제 A-B 선분 내부로 제한합니다.
- * ================================================================ */
-
-function closestPointOnSegment(
-  point: Point,
-  a: Point,
-  b: Point
-): Point {
-
-  const dx =
-    b.x - a.x
-
-  const dy =
-    b.y - a.y
-
-
-  const lengthSquared =
-    dx * dx +
-    dy * dy
-
-
-  /*
-   * 동일한 점
-   */
-  if (
-    lengthSquared === 0
-  ) {
-
-    return {
-
-      x:
-        a.x,
-
-      y:
-        a.y
-    }
+function toCircuitObject(trace: Partial<PlotData>): CircuitObject | null {
+  if (!Array.isArray(trace.x) || !Array.isArray(trace.y)) {
+    return null;
   }
-
-
-  /*
-   * Projection
-   */
-  let t =
-    (
-      (point.x - a.x) * dx +
-      (point.y - a.y) * dy
-    ) /
-    lengthSquared
-
-
-  /*
-   * 선분 밖으로 나가지 않도록 제한
-   */
-  t =
-    Math.max(
-      0,
-
-      Math.min(
-        1,
-
-        t
-      )
-    )
-
 
   return {
-
-    x:
-      a.x +
-      t * dx,
-
-    y:
-      a.y +
-      t * dy
-  }
+    name: trace.name ?? "",
+    x: trace.x as (number | null)[],
+    y: trace.y as (number | null)[],
+  };
 }
 
+const circuitGeometry = computed<CircuitObject[]>(() =>
+  circuitObjects.value
+    .map(toCircuitObject)
+    .filter((object): object is CircuitObject => object !== null)
+);
 
-/* ================================================================
- * Find Nearest Edge
- *
- * 모든 WaferObject의
- * 모든 line segment를 검사합니다.
- *
- * 예:
- *
- * x = [0, 100, 100, 0, 0]
- * y = [0, 0, 100, 100, 0]
- *
- * 다음 4개의 edge가 만들어집니다.
- *
- * P0 → P1
- * P1 → P2
- * P2 → P3
- * P3 → P4
- *
- * ★ 자동으로 P4 → P0를 연결하지 않습니다.
- * Plotly에 실제로 존재하는 line만 사용합니다.
- * ================================================================ */
+const plotElement = ref<HTMLElement | null>(null);
 
-function findNearestEdge(
-  point: Point
-): SnapPoint | null {
+// keydown은 document 레벨이라, 여러 chart가 있으면 마우스가 위에 있는 chart만 반응시킵니다.
+const isHovering = ref(false);
 
-  let nearest:
-    SnapPoint | null =
-      null
+const rulerMode = ref(false);
+const snapEnabled = ref(true);
+const showLegend = ref(true);
+const isMeasuring = ref(false);
+const startPoint = ref<Point | null>(null);
+const currentPoint = ref<Point | null>(null);
+const measurement = ref<Measurement>({ dx: 0, dy: 0, distance: 0 });
 
+// 측정 중 start는 안 바뀌므로 첫 클릭 시점의 nearestEdge를 캐싱해 매 프레임 재탐색을 피합니다.
+const startEdgeInfo = ref<NearestEdgeInfo | null>(null);
 
-  let nearestDistance =
-    Number.POSITIVE_INFINITY
+/**
+ * start/end가 최종적으로 object edge 위에 있는지(measurementColor가 씀). isPointOnEdge를
+ * 다시 호출하지 않고, applySnap 시점에 이미 계산해둔 nearestEdge/snapped로부터
+ * isFinallyOnEdge()로 파생시켜 저장해둡니다 (아래 isFinallyOnEdge 참고).
+ */
+const startOnEdge = ref(false);
+const endOnEdge = ref(false);
 
-
-  /*
-   * 모든 Object
-   */
-  for (
-    const object
-    of waferObjects.value
-  ) {
-
-    /*
-     * x/y 길이가 다를 수 있으므로
-     * 짧은 쪽에 맞춥니다.
-     */
-    const length =
-      Math.min(
-        object.x.length,
-        object.y.length
-      )
-
-
-    /*
-     * line segment
-     */
-    for (
-      let i = 0;
-      i < length - 1;
-      i++
-    ) {
-
-      const a: Point = {
-
-        x:
-          object.x[i],
-
-        y:
-          object.y[i]
-      }
-
-
-      const b: Point = {
-
-        x:
-          object.x[i + 1],
-
-        y:
-          object.y[i + 1]
-      }
-
-
-      /*
-       * 마우스에서
-       * 실제 edge 위 가장 가까운 점
-       */
-      const closest =
-        closestPointOnSegment(
-
-          point,
-
-          a,
-
-          b
-        )
-
-
-      const d =
-        getDistance(
-          point,
-
-          closest
-        )
-
-
-      /*
-       * 가장 가까운 edge 저장
-       */
-      if (
-        d < nearestDistance
-      ) {
-
-        nearestDistance =
-          d
-
-
-        nearest = {
-
-          x:
-            closest.x,
-
-          y:
-            closest.y,
-
-          objectName:
-            object.name
-        }
-      }
-    }
-  }
-
-
-  if (!nearest) {
-
-    return null
-  }
-
-
-  /*
-   * 화면 pixel 기준 Snap threshold
-   */
-  const threshold =
-    getSnapThreshold()
-
-
-  /*
-   * threshold 밖이면 Snap하지 않음
-   */
-  const actualDistance =
-    getDistance(
-
-      point,
-
-      nearest
-    )
-
-
-  if (
-    actualDistance >
-    threshold
-  ) {
-
-    return null
-  }
-
-
-  return nearest
+interface CompletedRuler {
+  start: Point;
+  end: Point;
+  startOnEdge: boolean;
+  endOnEdge: boolean;
 }
 
+// 완료된 측정들을 전부 누적해서 동시에 여러 ruler를 표시합니다. 진행 중인(첫 클릭만 한) 측정은
+// 여기 들어있지 않고 startPoint/currentPoint 등 단일 상태로만 존재하다가 finishMeasurement에서 여기로 옮겨집니다.
+const measurements = ref<CompletedRuler[]>([]);
 
-/* ================================================================
- * Plotly Pixel → Data Coordinate
+const hoveredEdge = ref<{
+  objectName: string;
+  a: Point;
+  b: Point;
+  snapPoint: Point;
+} | null>(null);
+
+let rulerRafId: number | null = null;
+
+// updateRuler()가 스스로 발생시키는 plotly_relayout을 걸러내는 플래그 (무한 루프 방지, handlePlotlyRelayout 참고)
+let isSyncingRuler = false;
+
+function getGraph(): HTMLElement | null {
+  return plotElement.value;
+}
+
+const { getPlotPoint, getSnapThreshold, getMarkerSize } = usePlotlyAxes(
+  plotElement,
+  () => props.snapThresholdPx
+);
+
+interface SnapResult {
+  point: Point;
+  /** point가 실제로 edge에 스냅됐는지(=정확히 그 edge 위인지). measurementColor가 재사용합니다. */
+  snapped: boolean;
+}
+
+/**
+ * Shift 축 고정(lockToAxis) 여부에 따라 constrainedPoint와 그에 맞는 nearestEdge를
+ * 함께 계산합니다.
  *
- * ★ Plotly 내부 axis 변환을 사용합니다.
- * ================================================================ */
-
-function getPlotPoint(
-  event: MouseEvent
-): Point | null {
-
-  const graph =
-    getGraph() as any
-
-
-  if (!graph) {
-
-    return null
-  }
-
-
-  const fullLayout =
-    graph._fullLayout
-
-
-  if (!fullLayout) {
-
-    return null
-  }
-
-
-  const xaxis =
-    fullLayout.xaxis
-
-
-  const yaxis =
-    fullLayout.yaxis
-
-
-  if (
-    !xaxis ||
-    !yaxis
-  ) {
-
-    return null
-  }
-
-
-  const rect =
-    graph.getBoundingClientRect()
-
-
-  const px =
-    event.clientX -
-    rect.left
-
-
-  const py =
-    event.clientY -
-    rect.top
-
-
-  return {
-
-    x:
-      xaxis.p2l(
-        px -
-        xaxis._offset
-      ),
-
-    y:
-      yaxis.p2l(
-        py -
-        yaxis._offset
-      )
-  }
-}
-
-
-/* ================================================================
- * Snap Threshold
- *
- * Pixel → 실제 좌표 변환
- * ================================================================ */
-
-function getSnapThreshold():
-  number {
-
-  const graph =
-    getGraph() as any
-
-
-  if (!graph) {
-
-    return 0
-  }
-
-
-  const xaxis =
-    graph._fullLayout?.xaxis
-
-
-  if (!xaxis) {
-
-    return 0
-  }
-
-
-  const p1 =
-    xaxis.p2l(
-      xaxis._offset
-    )
-
-
-  const p2 =
-    xaxis.p2l(
-      xaxis._offset +
-      props.snapThresholdPx
-    )
-
-
-  return Math.abs(
-    p2 - p1
-  )
-}
-
-
-/* ================================================================
- * Apply Snap
- * ================================================================ */
-
-function applySnap(
-  point: Point
-): Point {
-
-  /*
-   * Snap OFF
-   */
-  if (
-    !snapEnabled.value
-  ) {
-
-    snapPoint.value =
-      null
-
-    return point
-  }
-
-
-  /*
-   * 가장 가까운 Edge
-   */
-  const nearest =
-    findNearestEdge(
-      point
-    )
-
-
-  /*
-   * Snap 가능한 Edge 없음
-   */
-  if (!nearest) {
-
-    snapPoint.value =
-      null
-
-    return point
-  }
-
-
-  /*
-   * Snap marker
-   */
-  snapPoint.value =
-    nearest
-
-
-  /*
-   * 실제 Ruler 좌표도
-   * Edge 좌표로 변경
-   */
-  return {
-
-    x:
-      nearest.x,
-
-    y:
-      nearest.y
-  }
-}
-
-
-/* ================================================================
- * Find Object At Point
- *
- * Snap된 점을 기준으로 가장 가까운
- * Object 이름을 반환합니다.
- * ================================================================ */
-
-function findObjectAtPoint(
-  point: Point
-): string | undefined {
-
-  let nearestName:
-    string | undefined
-
-
-  let nearestDistance =
-    Number.POSITIVE_INFINITY
-
-
-  for (
-    const object
-    of waferObjects.value
-  ) {
-
-    const length =
-      Math.min(
-        object.x.length,
-        object.y.length
-      )
-
-
-    for (
-      let i = 0;
-      i < length - 1;
-      i++
-    ) {
-
-      const closest =
-        closestPointOnSegment(
-
-          point,
-
-          {
-            x:
-              object.x[i],
-
-            y:
-              object.y[i]
-          },
-
-          {
-            x:
-              object.x[i + 1],
-
-            y:
-              object.y[i + 1]
-          }
-        )
-
-
-      const d =
-        getDistance(
-          point,
-          closest
-        )
-
-
-      if (
-        d < nearestDistance
-      ) {
-
-        nearestDistance =
-          d
-
-        nearestName =
-          object.name
-      }
-    }
-  }
-
-
-  return nearestName
-}
-
-
-/* ================================================================
- * Calculate Measurement
- * ================================================================ */
-
-function calculateMeasurement(
+ * ★ 축 고정 상태에서 findNearestEdgeInfo(전체에서 가장 가까운 edge)를 그대로 쓰면,
+ * 그 edge가 고정된 축 위에 있지 않을 때 snap된 결과가 축을 벗어나 버립니다 (Shift로
+ * 수평/수직 고정을 했는데도 선이 미세하게 꺾이는 버그). 그래서 축 고정 중에는
+ * findAxisLockedEdgeIntersection으로 "고정된 축 위의 edge 교차점"만 후보로 삼아,
+ * 스냅되더라도 축 고정이 항상 유지되도록 합니다.
+ */
+function resolveConstrainedPoint(
   start: Point,
-  end: Point
-): Measurement {
+  rawPoint: Point,
+  shiftKey: boolean
+): { constrainedPoint: Point; nearestEdge: NearestEdgeInfo | null } {
+  if (!shiftKey) {
+    return {
+      constrainedPoint: rawPoint,
+      nearestEdge: findNearestEdgeInfo(rawPoint, circuitGeometry.value),
+    };
+  }
 
-  const dx =
-    Math.abs(
-      end.x -
-      start.x
-    )
-
-
-  const dy =
-    Math.abs(
-      end.y -
-      start.y
-    )
-
-
-  const distance =
-    Math.sqrt(
-      dx * dx +
-      dy * dy
-    )
-
+  const constrainedPoint = lockToAxis(start, rawPoint);
+  // lockToAxis가 y를 start.y로 고정했으면(dx>=dy) 'y', 아니면 x를 고정했으므로 'x'
+  const lockedAxis: "x" | "y" = constrainedPoint.y === start.y ? "y" : "x";
 
   return {
+    constrainedPoint,
+    nearestEdge: findAxisLockedEdgeIntersection(
+      constrainedPoint,
+      lockedAxis,
+      circuitGeometry.value
+    ),
+  };
+}
 
-    dx,
+// nearestEdge 생략 시 내부에서 계산. 기본 파라미터는 인자 생략 시 함수 본문보다 먼저 평가되므로
+// snapEnabled 가드를 기본값 식 자체에 둬야 snap 꺼졌을 때 불필요한 탐색을 막을 수 있습니다.
+function applySnap(
+  point: Point,
+  nearestEdge: NearestEdgeInfo | null = snapEnabled.value
+    ? findNearestEdgeInfo(point, circuitGeometry.value)
+    : null
+): SnapResult {
+  if (
+    !snapEnabled.value ||
+    !nearestEdge ||
+    nearestEdge.distance > getSnapThreshold()
+  ) {
+    return { point, snapped: false };
+  }
 
-    dy,
+  return {
+    point: { x: nearestEdge.point.x, y: nearestEdge.point.y },
+    snapped: true,
+  };
+}
 
-    distance,
+function updateHoveredEdge(
+  point: Point,
+  nearestEdge: NearestEdgeInfo | null = snapEnabled.value
+    ? findNearestEdgeInfo(point, circuitGeometry.value)
+    : null
+) {
+  if (!snapEnabled.value) {
+    hoveredEdge.value = null;
+    return;
+  }
 
-    startObject:
-      findObjectAtPoint(
-        start
-      ),
-
-    endObject:
-      findObjectAtPoint(
-        end
-      )
+  if (nearestEdge && nearestEdge.distance <= getSnapThreshold()) {
+    hoveredEdge.value = {
+      objectName: nearestEdge.objectName,
+      a: nearestEdge.a,
+      b: nearestEdge.b,
+      snapPoint: nearestEdge.point,
+    };
+  } else {
+    hoveredEdge.value = null;
   }
 }
 
+const hasMeasurement = computed(
+  () => measurements.value.length > 0 || isMeasuring.value
+);
 
-/* ================================================================
- * Current Measurement
- * ================================================================ */
-
-const currentMeasurement =
-  computed<Measurement>(
-    () => {
-
-      if (
-        !startPoint.value ||
-        !currentPoint.value
-      ) {
-
-        return {
-
-          dx:
-            0,
-
-          dy:
-            0,
-
-          distance:
-            0
-        }
-      }
-
-
-      return calculateMeasurement(
-
-        startPoint.value,
-
-        currentPoint.value
-      )
-    }
-  )
-
-
-/* ================================================================
- * Has Measurement
- * ================================================================ */
-
-const hasMeasurement =
-  computed(
-    () => {
-
-      return (
-
-        startPoint.value !== null &&
-
-        currentPoint.value !== null
-      )
-    }
-  )
-
-
-/* ================================================================
- * Plotly Data
- *
- * WaferObject를 그대로
- * scatter / lines로 표현
- * ================================================================ */
-
-function buildData():
-  Data[] {
-
-  return waferObjects.value.map(
-    (
-      object
-    ): Data => {
-
-      return {
-
-        type:
-          'scatter',
-
-        mode:
-          'lines',
-
-        x:
-          object.x,
-
-        y:
-          object.y,
-
-        name:
-          object.name,
-
-        hovertemplate:
-
-          `${object.name}` +
-
-          `<br>` +
-
-          `X: %{x:.2f} ${unit.value}` +
-
-          `<br>` +
-
-          `Y: %{y:.2f} ${unit.value}` +
-
-          '<extra></extra>'
-      }
-    }
-  )
-}
-
-
-/* ================================================================
- * Base Layout
- * ================================================================ */
-
-function buildBaseLayout():
-  Partial<Layout> {
-
-  return {
-
-    margin: {
-
-      l:
-        60,
-
-      r:
-        30,
-
-      t:
-        30,
-
-      b:
-        60
-    },
-
-
+function buildBaseLayout(): Partial<Layout> {
+  const defaults: Partial<Layout> = {
+    margin: { l: 60, r: 30, t: 30, b: 60 },
+    paper_bgcolor: "#000000",
+    plot_bgcolor: "#000000",
+    font: { color: "#e5e5e5" },
     xaxis: {
-
-      title: {
-
-        text:
-          `X (${unit.value})`
-      },
-
-      showgrid:
-        true,
-
-      zeroline:
-        true,
-
-      scaleanchor:
-        'y',
-
-      scaleratio:
-        1
+      title: { text: `X (${unit.value})` },
+      showgrid: true,
+      gridcolor: "#333333",
+      zeroline: true,
+      zerolinecolor: "#555555",
+      linecolor: "#555555",
+      tickfont: { color: "#e5e5e5" },
+      scaleanchor: "y",
+      scaleratio: 1,
     },
-
-
     yaxis: {
-
-      title: {
-
-        text:
-          `Y (${unit.value})`
-      },
-
-      showgrid:
-        true,
-
-      zeroline:
-        true
+      title: { text: `Y (${unit.value})` },
+      showgrid: true,
+      gridcolor: "#333333",
+      zeroline: true,
+      zerolinecolor: "#555555",
+      linecolor: "#555555",
+      tickfont: { color: "#e5e5e5" },
     },
+    dragmode: "pan",
 
+    showlegend: showLegend.value,
 
-    hovermode:
-      'closest',
+    legend: {
+      x: 0,
+      y: 1,
+      xanchor: "left",
+      yanchor: "top",
+      bgcolor: "rgba(255, 255, 255, 0.7)",
+    },
+  };
 
-
-    /*
-     * 일반 모드
-     */
-    dragmode:
-      'pan'
-  }
+  // xaxis/yaxis는 한 단계 더 깊게 merge해서 scaleanchor 같은 기본값이 통째로 사라지지 않게 함
+  return {
+    ...defaults,
+    ...props.layout,
+    xaxis: { ...defaults.xaxis, ...props.layout.xaxis },
+    yaxis: { ...defaults.yaxis, ...props.layout.yaxis },
+  };
 }
 
-
-/* ================================================================
- * Plotly Config
- * ================================================================ */
-
-const plotConfig:
-  Partial<Config> = {
-
-  responsive:
-    true,
-
-  displaylogo:
-    false,
-
-  scrollZoom:
-    true,
-
-  modeBarButtonsToRemove: [
-
-    'select2d',
-
-    'lasso2d'
-  ]
-}
-
-
-/* ================================================================
- * Initialize Plot
- * ================================================================ */
+const plotConfig: Partial<Config> = {
+  responsive: true,
+  displaylogo: false,
+  scrollZoom: true,
+  modeBarButtonsToRemove: ["select2d", "lasso2d"],
+};
 
 async function initializePlot() {
-
-  const graph =
-    getGraph()
-
-
-  if (!graph) {
-
-    return
-  }
-
+  const graph = getGraph();
+  if (!graph) return;
 
   await Plotly.newPlot(
-
     graph,
-
-    buildData(),
-
+    circuitObjects.value,
     buildBaseLayout(),
-
     plotConfig
-  )
+  );
 }
 
+const MARKER_RADIUS_PX = 3;
 
-/* ================================================================
- * Marker Size
+const RULER_COLOR_SNAPPED = "#EFFF00";
+const RULER_COLOR_UNSNAPPED = "#FF6A00";
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+const ON_EDGE_EPSILON = 1e-6; // 기존 isPointOnEdge 기본 epsilon과 동일 (동치성 유지를 위해 맞춤)
+
+/**
+ * nearestEdge/snapped로부터 "최종 좌표가 정확히 edge 위인지"를 재탐색 없이 판정합니다.
+ * - snapped === true: point는 nearestEdge.point 그 자체이므로 무조건 edge 위 (distance 0)
+ * - snapped === false: point는 nearestEdge를 구할 때 쓴 바로 그 좌표이므로, nearestEdge.distance를
+ *   epsilon과 비교하는 것만으로 isPointOnEdge(point, ...)와 완전히 동일한 결과를 얻습니다
+ *   (같은 point에 대한 탐색이라 재탐색해도 결과가 같기 때문입니다).
+ */
+function isFinallyOnEdge(
+  nearestEdge: NearestEdgeInfo | null,
+  snapped: boolean
+): boolean {
+  if (snapped) {
+    return true;
+  }
+
+  return nearestEdge !== null && nearestEdge.distance <= ON_EDGE_EPSILON;
+}
+
+/**
+ * start/end가 둘 다 object edge에 실제로 닿아있는지로 ruler 색을 정합니다.
+ * (snap threshold 안이어도 Snap이 꺼져 있으면 정확히 edge 위가 아닐 수 있음)
  *
- * 화면에서 약 8px 정도로 보이도록
- * 현재 scale에 맞춰 데이터 좌표로 변환합니다.
- * ================================================================ */
-
-function getMarkerSize():
-  number {
-
-  const graph =
-    getGraph() as any
-
-
-  if (!graph) {
-
-    return 1
-  }
-
-
-  const xaxis =
-    graph._fullLayout?.xaxis
-
-
-  if (!xaxis) {
-
-    return 1
-  }
-
-
-  const p1 =
-    xaxis.p2l(
-      xaxis._offset
-    )
-
-
-  const p2 =
-    xaxis.p2l(
-      xaxis._offset + 8
-    )
-
-
-  return Math.abs(
-    p2 - p1
-  )
+ * 매 프레임 isPointOnEdge로 재탐색하지 않고, applySnap 호출 시점에 이미 기록해둔
+ * startOnEdge/endOnEdge를 그대로 씁니다 (findNearestEdgeInfo 프레임당 2회 절감).
+ */
+function measurementColor(edges: {
+  startOnEdge: boolean;
+  endOnEdge: boolean;
+}): string {
+  return edges.startOnEdge && edges.endOnEdge
+    ? RULER_COLOR_SNAPPED
+    : RULER_COLOR_UNSNAPPED;
 }
 
+const HOVER_EDGE_COLOR = "#39FF14";
+const HOVER_MARKER_RADIUS_PX = 3;
 
-/* ================================================================
- * Ruler Shapes
- * ================================================================ */
-
-function buildRulerShapes() {
-
-  if (
-    !startPoint.value ||
-    !currentPoint.value
-  ) {
-
-    return []
+function buildHoverEdgeShapes() {
+  if (!hoveredEdge.value) {
+    return [];
   }
 
-
-  const start =
-    startPoint.value
-
-
-  const end =
-    currentPoint.value
-
-
-  const markerSize =
-    getMarkerSize()
-
+  const { a, b, snapPoint } = hoveredEdge.value;
+  const hoverMarkerRadius = getMarkerSize(HOVER_MARKER_RADIUS_PX);
 
   return [
-
-    /*
-     * Ruler Line
-     */
     {
-
-      type:
-        'line' as const,
-
-      x0:
-        start.x,
-
-      y0:
-        start.y,
-
-      x1:
-        end.x,
-
-      y1:
-        end.y,
-
+      type: "line" as const,
+      x0: a.x,
+      y0: a.y,
+      x1: b.x,
+      y1: b.y,
       line: {
-
-        width:
-          3
-      }
+        color: HOVER_EDGE_COLOR,
+        width: 1,
+        dash: "dot" as const,
+      },
+      opacity: 0.6,
     },
-
-
-    /*
-     * Start marker
-     */
     {
-
-      type:
-        'circle' as const,
-
-      x0:
-        start.x -
-        markerSize,
-
-      x1:
-        start.x +
-        markerSize,
-
-      y0:
-        start.y -
-        markerSize,
-
-      y1:
-        start.y +
-        markerSize,
-
+      type: "circle" as const,
+      x0: snapPoint.x - hoverMarkerRadius,
+      x1: snapPoint.x + hoverMarkerRadius,
+      y0: snapPoint.y - hoverMarkerRadius,
+      y1: snapPoint.y + hoverMarkerRadius,
+      fillcolor: HOVER_EDGE_COLOR,
       line: {
-
-        width:
-          2
-      }
+        color: "#000000",
+        width: 1,
+      },
+      opacity: 0.9,
     },
-
-
-    /*
-     * End marker
-     */
-    {
-
-      type:
-        'circle' as const,
-
-      x0:
-        end.x -
-        markerSize,
-
-      x1:
-        end.x +
-        markerSize,
-
-      y0:
-        end.y -
-        markerSize,
-
-      y1:
-        end.y +
-        markerSize,
-
-      line: {
-
-        width:
-          2
-      }
-    }
-
-  ]
+  ];
 }
 
+function buildRulerShapes(entry: { start: Point; end: Point; color: string }) {
+  const { start, end, color } = entry;
+  const markerSize = getMarkerSize(MARKER_RADIUS_PX);
 
-/* ================================================================
- * Ruler Annotation
- * ================================================================ */
-
-function buildRulerAnnotations() {
-
-  if (
-    !startPoint.value ||
-    !currentPoint.value
-  ) {
-
-    return []
-  }
-
-
-  const start =
-    startPoint.value
-
-
-  const end =
-    currentPoint.value
-
-
-  const result =
-    calculateMeasurement(
-
-      start,
-
-      end
-    )
-
+  const hollowMarker = (center: Point) => ({
+    type: "circle" as const,
+    x0: center.x - markerSize,
+    x1: center.x + markerSize,
+    y0: center.y - markerSize,
+    y1: center.y + markerSize,
+    fillcolor: hexToRgba(color, 0.15),
+    line: {
+      color: color,
+      width: 1,
+    },
+  });
 
   return [
-
     {
-
-      x:
-        (
-          start.x +
-          end.x
-        ) / 2,
-
-      y:
-        (
-          start.y +
-          end.y
-        ) / 2,
-
-      text:
-
-        `ΔX: ${result.dx.toFixed(2)} ${unit.value}` +
-
-        `<br>` +
-
-        `ΔY: ${result.dy.toFixed(2)} ${unit.value}` +
-
-        `<br>` +
-
-        `<b>${result.distance.toFixed(2)} ${unit.value}</b>`,
-
-      showarrow:
-        false,
-
-      bgcolor:
-        'white',
-
-      borderwidth:
-        1,
-
-      borderpad:
-        5
-    }
-
-  ]
+      type: "line" as const,
+      x0: start.x,
+      y0: start.y,
+      x1: end.x,
+      y1: end.y,
+      line: {
+        color: color,
+        width: 1,
+        dash: "dot" as const,
+      },
+    },
+    hollowMarker(start),
+    hollowMarker(end),
+  ];
 }
 
+const LABEL_MARGIN_PX = 3;
 
-/* ================================================================
- * Snap Marker
- * ================================================================ */
+// distance는 start/end 좌표만으로 정해지므로 그때그때 계산합니다 (완료된 항목은 정적이라 재계산 비용이 없음).
+function buildRulerAnnotation(entry: {
+  end: Point;
+  distance: number;
+  color: string;
+}) {
+  return {
+    x: entry.end.x,
+    y: entry.end.y,
+    xanchor: "left" as const,
+    yanchor: "top" as const,
+    xshift: LABEL_MARGIN_PX,
+    yshift: -LABEL_MARGIN_PX,
+    text: `${entry.distance.toFixed(2)} ${unit.value}`,
+    showarrow: false,
+    font: { color: entry.color, size: 8, weight: 300 },
+  };
+}
 
-function buildSnapShapes() {
+/**
+ * 완료된 측정(measurements)과 진행 중인 측정(startPoint~currentPoint, isMeasuring일 때만)을
+ * 합쳐 렌더링용 entry 목록으로 만듭니다. 진행 중인 측정은 measurement.value.distance를
+ * 재사용해 매 프레임 재계산하지 않습니다 (buildRulerAnnotation 참고).
+ */
+function buildRenderEntries() {
+  const entries = measurements.value.map((m) => ({
+    start: m.start,
+    end: m.end,
+    color: measurementColor(m),
+    distance: getDistance(m.start, m.end),
+  }));
 
-  if (
-    !snapPoint.value
-  ) {
-
-    return []
+  if (isMeasuring.value && startPoint.value && currentPoint.value) {
+    entries.push({
+      start: startPoint.value,
+      end: currentPoint.value,
+      color: measurementColor({
+        startOnEdge: startOnEdge.value,
+        endOnEdge: endOnEdge.value,
+      }),
+      distance: measurement.value.distance,
+    });
   }
 
-
-  const point =
-    snapPoint.value
-
-
-  const size =
-    getMarkerSize()
-
-
-  return [
-
-    {
-
-      type:
-        'circle' as const,
-
-      x0:
-        point.x -
-        size,
-
-      x1:
-        point.x +
-        size,
-
-      y0:
-        point.y -
-        size,
-
-      y1:
-        point.y +
-        size,
-
-      line: {
-
-        width:
-          2
-      }
-    }
-
-  ]
+  return entries;
 }
 
-
-/* ================================================================
- * Update Ruler
- *
- * ★ 중요
- *
- * Ruler 이동 중에는 Plotly.react() 사용하지 않습니다.
- *
- * shapes / annotations만 relayout합니다.
- * ================================================================ */
-
+// 측정 중에는 Plotly.react()가 아니라 shapes/annotations만 relayout합니다.
 async function updateRuler() {
+  const graph = getGraph();
+  if (!graph) return;
 
-  const graph =
-    getGraph()
+  const entries = buildRenderEntries();
 
+  isSyncingRuler = true;
 
-  if (!graph) {
-
-    return
-  }
-
-
-  const rulerShapes =
-    buildRulerShapes()
-
-
-  const snapShapes =
-    buildSnapShapes()
-
-
-  const annotations =
-    buildRulerAnnotations()
-
-
-  await Plotly.relayout(
-
-    graph,
-
-    {
-
+  try {
+    await Plotly.relayout(graph, {
       shapes: [
-
-        ...rulerShapes,
-
-        ...snapShapes
+        ...buildHoverEdgeShapes(),
+        ...entries.flatMap((entry) => buildRulerShapes(entry)),
       ],
-
-      annotations
-    }
-  )
+      annotations: entries.map((entry) => buildRulerAnnotation(entry)),
+    });
+  } finally {
+    isSyncingRuler = false;
+  }
 }
-
-
-/* ================================================================
- * Update Plot
- *
- * Wafer data가 변경되었을 때 사용
- *
- * Plotly.react()
- * ================================================================ */
 
 async function updatePlot() {
-
-  const graph =
-    getGraph()
-
-
-  if (!graph) {
-
-    return
-  }
-
+  const graph = getGraph();
+  if (!graph) return;
 
   await Plotly.react(
-
     graph,
-
-    buildData(),
-
+    circuitObjects.value,
     buildBaseLayout(),
-
     plotConfig
-  )
+  );
 
-
-  /*
-   * react 이후 Ruler 다시 표시
-   */
-  if (
-    startPoint.value &&
-    currentPoint.value
-  ) {
-
-    await updateRuler()
+  if (hasMeasurement.value) {
+    await updateRuler();
   }
 }
 
+// 첫 클릭: object edge 근처에서만 측정을 시작합니다 (빈 공간 오클릭 방지)
+function startMeasurement(rawPoint: Point) {
+  const nearestEdge = findNearestEdgeInfo(rawPoint, circuitGeometry.value);
 
-/* ================================================================
- * Mouse Down
- * ================================================================ */
-
-function handleMouseDown(
-  event: MouseEvent
-) {
-
-  /*
-   * Ruler OFF
-   */
-  if (
-    !rulerMode.value
-  ) {
-
-    return
+  if (!nearestEdge || nearestEdge.distance > getSnapThreshold()) {
+    return;
   }
 
+  const { point, snapped } = applySnap(rawPoint, nearestEdge);
 
-  /*
-   * 왼쪽 버튼만
-   */
-  if (
-    event.button !== 0
-  ) {
+  startPoint.value = point;
+  currentPoint.value = point;
+  startEdgeInfo.value = nearestEdge;
+  startOnEdge.value = isFinallyOnEdge(nearestEdge, snapped);
+  endOnEdge.value = startOnEdge.value; // 시작 시점은 start === end
+  isMeasuring.value = true;
+  measurement.value = calculateMeasurement(
+    point,
+    point,
+    circuitGeometry.value,
+    getSnapThreshold(),
+    { startEdge: nearestEdge, endEdge: nearestEdge }
+  );
 
-    return
+  void updateRuler();
+}
+
+// 두 번째 클릭: edge 근처가 아니어도 확정합니다 (start와 달리 end는 임의 지점 허용)
+function finishMeasurement(rawPoint: Point, event: MouseEvent) {
+  if (!startPoint.value) {
+    return;
   }
 
+  const { constrainedPoint, nearestEdge } = resolveConstrainedPoint(
+    startPoint.value,
+    rawPoint,
+    event.shiftKey
+  );
+  const { point, snapped } = applySnap(constrainedPoint, nearestEdge);
 
-  const rawPoint =
-    getPlotPoint(
-      event
-    )
+  currentPoint.value = point;
+  endOnEdge.value = isFinallyOnEdge(nearestEdge, snapped);
+  measurement.value = calculateMeasurement(
+    startPoint.value,
+    point,
+    circuitGeometry.value,
+    getSnapThreshold(),
+    { startEdge: startEdgeInfo.value, endEdge: nearestEdge }
+  );
 
+  emit("measure", measurement.value);
+
+  // 완료된 측정을 누적 목록으로 옮기고, 다음 측정을 위해 진행 중 상태는 비웁니다
+  // (measurements에 남아있으니 여러 개를 동시에 표시할 수 있습니다).
+  measurements.value.push({
+    start: startPoint.value,
+    end: point,
+    startOnEdge: startOnEdge.value,
+    endOnEdge: endOnEdge.value,
+  });
+
+  isMeasuring.value = false;
+  startPoint.value = null;
+  currentPoint.value = null;
+  startEdgeInfo.value = null;
+  startOnEdge.value = false;
+  endOnEdge.value = false;
+
+  cancelScheduledRulerUpdate();
+  void updateRuler();
+}
+
+function handleMouseDown(event: MouseEvent) {
+  if (!rulerMode.value || event.button !== 0) {
+    return;
+  }
+
+  // modebar 클릭도 graph 내부라 여기로 버블링됨: 가로채지 않고 Ruler를 꺼서 Zoom/Pan이 그대로 동작하게 함
+  const target = event.target as HTMLElement | null;
+
+  if (target?.closest(".modebar")) {
+    void toggleRuler();
+
+    return;
+  }
+
+  // legend 클릭도 버블링되지만 dragmode와 무관하므로 ruler 클릭만 막음 (ruler는 끄지 않음)
+  if (target?.closest(".legend")) {
+    return;
+  }
+
+  const rawPoint = getPlotPoint(event);
 
   if (!rawPoint) {
-
-    return
+    return;
   }
 
+  if (isMeasuring.value) {
+    finishMeasurement(rawPoint, event);
+  } else {
+    startMeasurement(rawPoint);
+  }
 
-  /*
-   * 가장 가까운 Edge에 Snap
-   */
-  const point =
-    applySnap(
-      rawPoint
-    )
-
-
-  /*
-   * 시작점
-   */
-  startPoint.value =
-    point
-
-
-  currentPoint.value =
-    point
-
-
-  isDragging.value =
-    true
-
-
-  measurement.value =
-    calculateMeasurement(
-
-      point,
-
-      point
-    )
-
-
-  /*
-   * Plotly pan 방지
-   */
-  event.preventDefault()
-
-
-  /*
-   * Ruler 표시
-   */
-  void updateRuler()
+  event.preventDefault();
 }
 
+/**
+ * mousemove가 한 프레임 안에 여러 번(트랙패드 스크롤 제스처와 겹칠 때 특히) 발생하면,
+ * 예전엔 "그리기"만 rAF로 프레임당 1회로 묶이고 findNearestEdgeInfo 같은 무거운 탐색은
+ * 매 mousemove마다 동기적으로 실행됐습니다. hover 중(isHovering=true) 스크롤 줌을 하면
+ * 트랙패드가 mousemove를 같이 쏟아내면서, 이미 무거운 Plotly의 zoom 재렌더링과 겹쳐
+ * 렉이 커지는 원인이었습니다. handleMouseMove는 이제 가벼운 좌표만 저장해두고,
+ * 실제 탐색/스냅 계산은 여기서 그리기와 함께 rAF로 한 프레임당 최대 1회만 실행합니다.
+ */
+let pendingMouseMove: { rawPoint: Point; shiftKey: boolean } | null = null;
 
-/* ================================================================
- * Mouse Move
- * ================================================================ */
-
-function handleMouseMove(
-  event: MouseEvent
-) {
-
-  /*
-   * Ruler drag 중이 아니면 무시
-   */
-  if (
-
-    !rulerMode.value ||
-
-    !isDragging.value ||
-
-    !startPoint.value
-  ) {
-
-    return
+function processPendingMouseMove() {
+  if (!pendingMouseMove) {
+    return;
   }
 
+  const { rawPoint, shiftKey } = pendingMouseMove;
+  pendingMouseMove = null;
 
-  const rawPoint =
-    getPlotPoint(
-      event
-    )
+  if (!isMeasuring.value || !startPoint.value) {
+    updateHoveredEdge(rawPoint);
+    return;
+  }
 
+  // Shift 축 고정 시 스냅이 축을 벗어나지 않도록, 고정 축과 실제로 교차하는 edge만 탐색
+  // (resolveConstrainedPoint 참고). updateHoveredEdge/applySnap/calculateMeasurement가
+  // 이 nearestEdge를 그대로 재사용합니다.
+  const { constrainedPoint, nearestEdge } = resolveConstrainedPoint(
+    startPoint.value,
+    rawPoint,
+    shiftKey
+  );
+
+  updateHoveredEdge(constrainedPoint, nearestEdge);
+
+  const { point, snapped } = applySnap(constrainedPoint, nearestEdge);
+
+  currentPoint.value = point;
+  endOnEdge.value = isFinallyOnEdge(nearestEdge, snapped);
+  measurement.value = calculateMeasurement(
+    startPoint.value,
+    point,
+    circuitGeometry.value,
+    getSnapThreshold(),
+    { startEdge: startEdgeInfo.value, endEdge: nearestEdge }
+  );
+
+  emit("measure", measurement.value);
+}
+
+function scheduleRulerUpdate() {
+  if (rulerRafId !== null) {
+    return;
+  }
+
+  rulerRafId = requestAnimationFrame(() => {
+    rulerRafId = null;
+    processPendingMouseMove();
+    void updateRuler();
+  });
+}
+
+/**
+ * plotly_relayout(zoom/pan)이 유발하는 marker 재계산은 rAF가 아니라 짧은 debounce로 묶습니다.
+ * scroll zoom처럼 plotly_relayout이 아주 짧은 간격으로 연달아 발생하면, 우리 updateRuler()의
+ * Plotly.relayout() 호출이 미처 끝나기도 전에(isSyncingRuler는 그 호출 "동안"만 막아줌) Plotly
+ * 자체의 다음 zoom relayout이 같은 gd에 겹쳐 들어오면서 두 relayout이 서로의 결과를 덮어써
+ * ruler shapes/annotations가 순간적으로 사라지는 경쟁 상태가 있었습니다. rAF(프레임당 1회)는
+ * 이 정도로 촘촘한 연속 이벤트를 막기엔 촘촘하므로, zoom이 짧게라도 멈춘 뒤 한 번만 다시
+ * 그리도록 debounce합니다.
+ */
+let rulerResizeTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const RULER_RESIZE_DEBOUNCE_MS = 150;
+
+function scheduleRulerResizeUpdate() {
+  if (rulerResizeTimeoutId !== null) {
+    clearTimeout(rulerResizeTimeoutId);
+  }
+
+  rulerResizeTimeoutId = setTimeout(() => {
+    rulerResizeTimeoutId = null;
+    void updateRuler();
+  }, RULER_RESIZE_DEBOUNCE_MS);
+}
+
+function cancelScheduledRulerUpdate() {
+  if (rulerRafId !== null) {
+    cancelAnimationFrame(rulerRafId);
+    rulerRafId = null;
+  }
+
+  pendingMouseMove = null;
+
+  if (rulerResizeTimeoutId !== null) {
+    clearTimeout(rulerResizeTimeoutId);
+    rulerResizeTimeoutId = null;
+  }
+}
+
+/**
+ * 화면에 그려진 ruler/hover가 하나도 없으면 다시 그릴 것도 없으므로 스케줄조차 하지 않습니다.
+ * 이 가드가 없으면 scroll zoom처럼 plotly_relayout이 짧은 시간에 여러 번 발생하는 상황에서
+ * 매번 불필요한 Plotly.relayout()을 추가로 호출하게 되어, object가 많은 차트에서 Plotly
+ * 자체 zoom 렌더링과 경합해 버벅임이 두드러집니다.
+ */
+function handlePlotlyRelayout() {
+  if (isSyncingRuler) {
+    return;
+  }
+
+  if (!hasMeasurement.value && !hoveredEdge.value) {
+    return;
+  }
+
+  scheduleRulerResizeUpdate();
+}
+
+function handleMouseMove(event: MouseEvent) {
+  if (!rulerMode.value) {
+    return;
+  }
+
+  // mousemove는 document 레벨이라 chart 인스턴스가 여러 개면 전부 이 핸들러를 받습니다.
+  // 이 인스턴스 위에 마우스가 없고 진행 중인 측정도 없으면 findNearestEdgeInfo 같은 무거운
+  // 탐색을 할 이유가 없으므로 여기서 걸러냅니다 (handleKeyDown과 동일 패턴). 측정 중일 때는
+  // 마우스가 이 chart 밖으로 나가도 계속 갱신되어야 하므로 isMeasuring을 OR로 남겨둡니다.
+  if (!isHovering.value && !isMeasuring.value) {
+    return;
+  }
+
+  // legend/modebar 위에서는 hover 하이라이트를 갱신하지 않음 (측정 중이면 계속 진행)
+  const target = event.target as HTMLElement | null;
+
+  if (
+    (!isMeasuring.value || !startPoint.value) &&
+    (target?.closest(".legend") || target?.closest(".modebar"))
+  ) {
+    return;
+  }
+
+  const rawPoint = getPlotPoint(event);
 
   if (!rawPoint) {
-
-    return
+    return;
   }
 
-
-  /*
-   * 현재 마우스 위치를
-   * 가장 가까운 Edge로 Snap
-   */
-  const point =
-    applySnap(
-      rawPoint
-    )
-
-
-  currentPoint.value =
-    point
-
-
-  /*
-   * 측정
-   */
-  measurement.value =
-    calculateMeasurement(
-
-      startPoint.value,
-
-      point
-    )
-
-
-  /*
-   * 외부에서도 결과를 받을 수 있도록 emit
-   */
-  emit(
-    'measure',
-
-    measurement.value
-  )
-
-
-  /*
-   * ★ 중요
-   *
-   * Plotly.react()가 아니라
-   * relayout()만 사용
-   */
-  void updateRuler()
+  // 무거운 탐색(findNearestEdgeInfo)은 여기서 하지 않고 좌표만 저장해둡니다.
+  // processPendingMouseMove(scheduleRulerUpdate 참고)가 그리기와 함께 rAF로
+  // 프레임당 최대 1회만 실제 탐색/스냅 계산을 수행합니다.
+  pendingMouseMove = { rawPoint, shiftKey: event.shiftKey };
+  scheduleRulerUpdate();
 }
 
+// 첫 클릭만 찍힌 진행 중 측정만 취소합니다. measurements(완료된 항목들)는 건드리지 않습니다.
+async function cancelInProgressMeasurement() {
+  isMeasuring.value = false;
+  startPoint.value = null;
+  currentPoint.value = null;
+  startEdgeInfo.value = null;
+  startOnEdge.value = false;
+  endOnEdge.value = false;
 
-/* ================================================================
- * Mouse Up
- * ================================================================ */
-
-function handleMouseUp(
-  event: MouseEvent
-) {
-
-  if (
-    !rulerMode.value ||
-    !isDragging.value
-  ) {
-
-    return
-  }
-
-
-  const rawPoint =
-    getPlotPoint(
-      event
-    )
-
-
-  if (rawPoint) {
-
-    /*
-     * 마지막 위치도 Snap
-     */
-    const point =
-      applySnap(
-        rawPoint
-      )
-
-
-    currentPoint.value =
-      point
-
-
-    if (
-      startPoint.value
-    ) {
-
-      measurement.value =
-        calculateMeasurement(
-
-          startPoint.value,
-
-          point
-        )
-
-
-      emit(
-        'measure',
-
-        measurement.value
-      )
-    }
-  }
-
-
-  isDragging.value =
-    false
-
-
-  void updateRuler()
+  await updateRuler();
 }
 
+/**
+ * Ruler를 끄면서 dragmode를 finalDragmode로 전환합니다. 완료된 ruler들은 지우지 않고,
+ * 첫 클릭만 찍힌 미완성 측정만 취소합니다 (전부 지우는 건 Clear 버튼만). Ruler 버튼/단축키/
+ * Escape/Zoom·Pan 단축키가 모두 이 기준을 공유합니다.
+ */
+async function exitRulerMode(finalDragmode: "pan" | "zoom") {
+  cancelScheduledRulerUpdate();
 
-/* ================================================================
- * Toggle Ruler
- * ================================================================ */
+  rulerMode.value = false;
+  hoveredEdge.value = null;
+
+  const graph = getGraph();
+
+  if (!graph) {
+    return;
+  }
+
+  await Plotly.relayout(graph, { dragmode: finalDragmode });
+
+  if (isMeasuring.value) {
+    await cancelInProgressMeasurement();
+  } else {
+    await updateRuler();
+  }
+}
 
 async function toggleRuler() {
-
-  rulerMode.value =
-    !rulerMode.value
-
-
-  isDragging.value =
-    false
-
-
-  if (
-    !rulerMode.value
-  ) {
-
-    /*
-     * Ruler OFF
-     */
-    startPoint.value =
-      null
-
-
-    currentPoint.value =
-      null
-
-
-    snapPoint.value =
-      null
-
-
-    await Plotly.relayout(
-
-      getGraph()!,
-
-      {
-
-        shapes: [],
-
-        annotations: [],
-
-        dragmode:
-          'pan'
-      }
-    )
-
-  } else {
-
-    /*
-     * Ruler ON
-     *
-     * Plotly 기본 drag 동작을 끕니다.
-     */
-    await Plotly.relayout(
-
-      getGraph()!,
-
-      {
-
-        dragmode:
-          false
-      }
-    )
+  if (rulerMode.value) {
+    await exitRulerMode("pan");
+    return;
   }
+
+  rulerMode.value = true;
+
+  const graph = getGraph();
+
+  if (!graph) {
+    return;
+  }
+
+  await Plotly.relayout(graph, { dragmode: false });
 }
-
-
-/* ================================================================
- * Toggle Snap
- * ================================================================ */
 
 async function toggleSnap() {
+  snapEnabled.value = !snapEnabled.value;
 
-  snapEnabled.value =
-    !snapEnabled.value
-
-
-  if (
-    !snapEnabled.value
-  ) {
-
-    snapPoint.value =
-      null
+  if (!snapEnabled.value) {
+    hoveredEdge.value = null;
   }
 
-
-  await updateRuler()
+  await updateRuler();
 }
 
+async function toggleLegend() {
+  showLegend.value = !showLegend.value;
 
-/* ================================================================
- * Clear
- * ================================================================ */
+  const graph = getGraph();
+
+  if (!graph) {
+    return;
+  }
+
+  await Plotly.relayout(graph, { showlegend: showLegend.value });
+}
 
 async function clearMeasurement() {
+  cancelScheduledRulerUpdate();
 
-  isDragging.value =
-    false
+  isMeasuring.value = false;
+  startPoint.value = null;
+  currentPoint.value = null;
+  startEdgeInfo.value = null;
+  startOnEdge.value = false;
+  endOnEdge.value = false;
+  measurements.value = [];
+  measurement.value = { dx: 0, dy: 0, distance: 0 };
 
+  // 부모가 measure 이벤트를 구독 중일 수 있어 리셋값도 emit
+  emit("measure", measurement.value);
 
-  startPoint.value =
-    null
-
-
-  currentPoint.value =
-    null
-
-
-  snapPoint.value =
-    null
-
-
-  measurement.value = {
-
-    dx:
-      0,
-
-    dy:
-      0,
-
-    distance:
-      0
-  }
-
-
-  const graph =
-    getGraph()
-
+  const graph = getGraph();
 
   if (!graph) {
-
-    return
+    return;
   }
 
-
-  await Plotly.relayout(
-
-    graph,
-
-    {
-
-      shapes: [],
-
-      annotations: []
-    }
-  )
+  await Plotly.relayout(graph, { shapes: [], annotations: [] });
 }
 
+// i/o/a/x/d: dragmode와 무관한 1회성 액션이라 Ruler 상태는 건드리지 않고 modebar 버튼을 그대로 클릭합니다.
+const MODEBAR_ACTION_KEYS: Record<string, string> = {
+  i: "Zoom in",
+  o: "Zoom out",
+  a: "Autoscale",
+  x: "Reset axes",
+  d: "Download plot as a PNG",
+};
 
-/* ================================================================
- * ESC
- * ================================================================ */
+function clickModebarButton(dataTitle: string) {
+  const graph = getGraph();
 
-function handleKeyDown(
-  event: KeyboardEvent
-) {
-
-  if (
-    event.key !== 'Escape'
-  ) {
-
-    return
-  }
-
-
-  rulerMode.value =
-    false
-
-
-  isDragging.value =
-    false
-
-
-  startPoint.value =
-    null
-
-
-  currentPoint.value =
-    null
-
-
-  snapPoint.value =
-    null
-
-
-  const graph =
-    getGraph()
-
-
-  if (!graph) {
-
-    return
-  }
-
-
-  void Plotly.relayout(
-
-    graph,
-
-    {
-
-      shapes: [],
-
-      annotations: [],
-
-      dragmode:
-        'pan'
-    }
-  )
+  graph
+    ?.querySelector<HTMLElement>(`.modebar-btn[data-title="${dataTitle}"]`)
+    ?.click();
 }
 
+const shortcutsPopoverOpen = ref(false);
 
-/* ================================================================
- * Watch Objects
- *
- * 부모에서 objects가 변경되면
- * Plotly.react()
- * ================================================================ */
+function handleShortcutClick(item: { run: () => void }) {
+  item.run();
+  shortcutsPopoverOpen.value = false;
+}
+
+// ❓ 팝오버에 표시할 단축키 목록. 행을 클릭하면 실제로 그 키를 누른 것과 동일한 동작이
+// 실행되도록 run을 같이 둡니다 (handleKeyDown의 분기와 동일한 함수를 그대로 재사용).
+// modebar 액션 5개는 MODEBAR_ACTION_KEYS를 그대로 재사용해 이름이 어긋나지 않게 합니다.
+const SHORTCUT_LIST: { key: string; action: string; run: () => void }[] = [
+  { key: "R", action: "Ruler ON/OFF", run: () => void toggleRuler() },
+  { key: "Z", action: "Zoom", run: () => void exitRulerMode("zoom") },
+  { key: "P", action: "Pan", run: () => void exitRulerMode("pan") },
+  ...Object.entries(MODEBAR_ACTION_KEYS).map(([key, action]) => ({
+    key: key.toUpperCase(),
+    action,
+    run: () => clickModebarButton(action),
+  })),
+  { key: "Esc", action: "Ruler OFF", run: () => void exitRulerMode("zoom") },
+];
+
+function handleKeyDown(event: KeyboardEvent) {
+  if (!isHovering.value && !isMeasuring.value) {
+    return;
+  }
+
+  // Escape는 Ruler만 끄고 Pan이 아닌 Zoom으로 전환합니다.
+  if (event.key === "Escape") {
+    void exitRulerMode("zoom");
+    return;
+  }
+
+  // 키를 누르고 있으면 반복 keydown이 발생하므로 최초 누름에서만 반응
+  if (event.repeat) {
+    return;
+  }
+
+  const key = event.key.toLowerCase();
+
+  if (key === "r") {
+    void toggleRuler();
+    return;
+  }
+
+  // Zoom/Pan은 dragmode를 false 아닌 값으로 바꾸므로 Ruler와 같이 켜둘 수 없어 항상 Ruler를 끕니다.
+  if (key === "z") {
+    void exitRulerMode("zoom");
+    return;
+  }
+
+  if (key === "p") {
+    void exitRulerMode("pan");
+    return;
+  }
+
+  const modebarTitle = MODEBAR_ACTION_KEYS[key];
+
+  if (modebarTitle) {
+    clickModebarButton(modebarTitle);
+  }
+}
 
 watch(
+  () => props.objects,
+  () => void updatePlot(),
+  { deep: true }
+);
 
-  () =>
-    props.objects,
+onMounted(async () => {
+  await nextTick();
 
-  () => {
+  const graph = getGraph();
 
-    void updatePlot()
-  },
-
-  {
-    deep:
-      true
+  if (!graph) {
+    return;
   }
-)
 
+  await initializePlot();
 
-/* ================================================================
- * Mounted
- * ================================================================ */
+  // mousemove는 그래프 밖으로 나가도 놓치지 않도록 document에서 받음
+  graph.addEventListener("mousedown", handleMouseDown);
+  document.addEventListener("mousemove", handleMouseMove);
+  document.addEventListener("keydown", handleKeyDown);
 
-onMounted(
-  async () => {
+  (graph as any).on("plotly_relayout", handlePlotlyRelayout);
+});
 
-    await nextTick()
+onBeforeUnmount(() => {
+  cancelScheduledRulerUpdate();
 
+  const graph = getGraph();
 
-    const graph =
-      getGraph()
-
-
-    if (!graph) {
-
-      return
-    }
-
-
-    /*
-     * 최초 Plotly 생성
-     */
-    await initializePlot()
-
-
-    /*
-     * ==========================================================
-     * Mouse Event
-     *
-     * mousedown
-     * → Plotly element
-     *
-     * mousemove
-     * mouseup
-     * → document
-     * ==========================================================
-     */
-
-    graph.addEventListener(
-
-      'mousedown',
-
-      handleMouseDown
-    )
-
-
-    document.addEventListener(
-
-      'mousemove',
-
-      handleMouseMove
-    )
-
-
-    document.addEventListener(
-
-      'mouseup',
-
-      handleMouseUp
-    )
-
-
-    document.addEventListener(
-
-      'keydown',
-
-      handleKeyDown
-    )
+  if (graph) {
+    graph.removeEventListener("mousedown", handleMouseDown);
+    (graph as any).removeListener("plotly_relayout", handlePlotlyRelayout);
   }
-)
 
+  document.removeEventListener("mousemove", handleMouseMove);
+  document.removeEventListener("keydown", handleKeyDown);
 
-/* ================================================================
- * Before Unmount
- * ================================================================ */
-
-onBeforeUnmount(
-  () => {
-
-    const graph =
-      getGraph()
-
-
-    if (graph) {
-
-      graph.removeEventListener(
-
-        'mousedown',
-
-        handleMouseDown
-      )
-    }
-
-
-    document.removeEventListener(
-
-      'mousemove',
-
-      handleMouseMove
-    )
-
-
-    document.removeEventListener(
-
-      'mouseup',
-
-      handleMouseUp
-    )
-
-
-    document.removeEventListener(
-
-      'keydown',
-
-      handleKeyDown
-    )
-
-
-    if (graph) {
-
-      Plotly.purge(
-        graph
-      )
-    }
+  if (graph) {
+    Plotly.purge(graph);
   }
-)
-
+});
 </script>
